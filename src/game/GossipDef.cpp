@@ -198,7 +198,7 @@ void PlayerMenu::CloseGossip()
     WorldPacket data(SMSG_GOSSIP_COMPLETE, 0);
     GetMenuSession()->SendPacket(&data);
 
-    // DEBUG_LOG( "WORLD: Sent SMSG_GOSSIP_COMPLETE" );
+    // DEBUG_LOG("WORLD: Sent SMSG_GOSSIP_COMPLETE");
 }
 
 // Outdated

@@ -353,7 +353,6 @@ void WorldSession::HandleCastSpellOpcode(WorldPacket& recvPacket)
               spellId, cast_count, unk_flags, recvPacket.size());
 
     SpellEntry const* spellInfo = sSpellStore.LookupEntry(spellId);
-
     if (!spellInfo)
     {
         sLog.outError("WORLD: unknown spell id %u", spellId);

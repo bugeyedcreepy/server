@@ -382,7 +382,7 @@ bool Unit::UpdateMeleeAttackingState()
         setAttackTimer(OFF_ATTACK, 100);
         swingError = 1;
     }
-    //120 degrees of radiant range
+    // 120 degrees of radiant range
     else if (!HasInArc(2 * M_PI_F / 3, victim))
     {
         setAttackTimer(BASE_ATTACK, 100);
@@ -715,7 +715,7 @@ uint32 Unit::DealDamage(Unit* pVictim, uint32 damage, CleanDamage const* cleanDa
 
             WorldPacket data(SMSG_PARTYKILLLOG, (8 + 8));   // send event PARTY_KILL
             data << player_tap->GetObjectGuid();            // player with killing blow
-            data << pVictim->GetObjectGuid();              // victim
+            data << pVictim->GetObjectGuid();               // victim
 
             if (group_tap)
                 group_tap->BroadcastPacket(&data, false, group_tap->GetMemberGroup(player_tap->GetObjectGuid()), player_tap->GetObjectGuid());
@@ -795,8 +795,10 @@ uint32 Unit::DealDamage(Unit* pVictim, uint32 damage, CleanDamage const* cleanDa
         // Call AI OwnerKilledUnit (for any current summoned minipet/guardian/protector)
         PetOwnerKilledUnit(pVictim);
 
-        // achievement stuff
-        if (pVictim->GetTypeId() == TYPEID_PLAYER)
+        /*
+         *                      Actions for the victim
+         */
+        if (pVictim->GetTypeId() == TYPEID_PLAYER)          // Killed player
         {
             if (GetTypeId() == TYPEID_UNIT)
                 ((Player*)pVictim)->GetAchievementMgr().UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_KILLED_BY_CREATURE, GetEntry());
@@ -1701,7 +1703,6 @@ void Unit::CalculateMeleeDamage(Unit* pVictim, uint32 damage, CalcDamageInfo* da
         }
         if (damageInfo->resist)
             damageInfo->HitInfo |= HITINFO_RESIST;
-
     }
     else // Umpossible get negative result but....
         damageInfo->damage = 0;
@@ -1839,7 +1840,6 @@ void Unit::DealMeleeDamage(CalcDamageInfo* damageInfo, bool durabilityLoss)
         }
     }
 }
-
 
 void Unit::HandleEmoteCommand(uint32 emote_id)
 {
@@ -2391,7 +2391,6 @@ void Unit::CalculateDamageAbsorbAndResist(Unit* pCaster, SpellSchoolMask schoolM
 
             RemainingDamage -= currentAbsorb;
 
-
             uint32 splitted = currentAbsorb;
             uint32 splitted_absorb = 0;
             pCaster->DealDamageMods(caster, splitted, &splitted_absorb);
@@ -2661,9 +2660,9 @@ MeleeHitOutcome Unit::RollMeleeOutcomeAgainst(const Unit* pVictim, WeaponAttackT
     int32 victimDefenseSkill = pVictim->GetDefenseSkillValue(this);
 
     // bonus from skills is 0.04%
-    int32    skillBonus  = 4 * (attackerWeaponSkill - victimMaxSkillValueForLevel);
+    int32 skillBonus  = 4 * (attackerWeaponSkill - victimMaxSkillValueForLevel);
     int32    sum = 0, tmp = 0;
-    int32    roll = urand(0, 10000);
+    int32 roll = urand(0, 10000);
 
     DEBUG_FILTER_LOG(LOG_FILTER_COMBAT, "RollMeleeOutcomeAgainst: skill bonus of %d for attacker", skillBonus);
     DEBUG_FILTER_LOG(LOG_FILTER_COMBAT, "RollMeleeOutcomeAgainst: rolled %d, miss %d, dodge %d, parry %d, block %d, crit %d",
@@ -4776,13 +4775,13 @@ void Unit::RemoveNotOwnTrackedTargetAuras(uint32 newPhase)
             {
                 if (!newPhase)
                 {
-                    scTargets.erase(itr);                       // remove for caster in any case
+                    scTargets.erase(itr);                   // remove for caster in any case
 
                     // remove from target if target found
                     if (Unit* itr_target = GetMap()->GetUnit(itr_targetGuid))
                         itr_target->RemoveAurasByCasterSpell(itr_spellEntry->Id, GetObjectGuid());
 
-                    itr = scTargets.begin();                    // list can be changed at remove aura
+                    itr = scTargets.begin();                // list can be changed at remove aura
                     continue;
                 }
                 else
@@ -4790,13 +4789,13 @@ void Unit::RemoveNotOwnTrackedTargetAuras(uint32 newPhase)
                     Unit* itr_target = GetMap()->GetUnit(itr_targetGuid);
                     if (!itr_target || !itr_target->InSamePhase(newPhase))
                     {
-                        scTargets.erase(itr);                   // remove for caster in any case
+                        scTargets.erase(itr);               // remove for caster in any case
 
                         // remove from target if target found
                         if (itr_target)
                             itr_target->RemoveAurasByCasterSpell(itr_spellEntry->Id, GetObjectGuid());
 
-                        itr = scTargets.begin();                // list can be changed at remove aura
+                        itr = scTargets.begin();            // list can be changed at remove aura
                         continue;
                     }
                 }
@@ -6821,7 +6820,6 @@ int32 Unit::SpellBaseDamageBonusDone(SpellSchoolMask schoolMask)
             if ((*i)->GetModifier()->m_miscvalue & schoolMask)
                 DoneAdvertisedBenefit += int32(GetTotalAttackPowerValue(BASE_ATTACK) * (*i)->GetModifier()->m_amount / 100.0f);
         }
-
     }
     return DoneAdvertisedBenefit;
 }
@@ -7355,8 +7353,8 @@ bool Unit::IsImmuneToSpell(SpellEntry const* spellInfo)
         if (itr->type == spellInfo->Dispel)
             return true;
 
-    if (!spellInfo->HasAttribute(SPELL_ATTR_EX_UNAFFECTED_BY_SCHOOL_IMMUNE) &&         // unaffected by school immunity
-            !spellInfo->HasAttribute(SPELL_ATTR_EX_DISPEL_AURAS_ON_IMMUNITY))              // can remove immune (by dispell or immune it)
+    if (!spellInfo->HasAttribute(SPELL_ATTR_EX_UNAFFECTED_BY_SCHOOL_IMMUNE) &&          // unaffected by school immunity
+            !spellInfo->HasAttribute(SPELL_ATTR_EX_DISPEL_AURAS_ON_IMMUNITY))           // can remove immune (by dispell or immune it)
     {
         SpellImmuneList const& schoolList = m_spellImmune[IMMUNITY_SCHOOL];
         for (SpellImmuneList::const_iterator itr = schoolList.begin(); itr != schoolList.end(); ++itr)
@@ -10008,7 +10006,6 @@ void Unit::ProcDamageAndSpellFor(bool isVictim, Unit* pTarget, uint32 procFlag, 
                         }
                         else if (spellProcEvent->procEx == PROC_EX_NONE && procExtra == PROC_EX_CAST_END)
                             continue;
-
                     }
                     // don't check dbc FamilyFlags if schoolMask exists
                     else if (!triggeredByAura->CanProcFrom(procSpell, procFlag, spellProcEvent->procEx, procExtra, damage != 0, !spellProcEvent->schoolMask))
@@ -10280,7 +10277,6 @@ void Unit::SetFeignDeath(bool apply, ObjectGuid casterGuid, uint32 /*spellID*/)
             else
                 GetMotionMaster()->Initialize();
         }
-
     }
 }
 

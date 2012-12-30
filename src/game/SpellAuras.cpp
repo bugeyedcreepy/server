@@ -1254,9 +1254,9 @@ void Aura::TriggerSpell()
                         float newAngle = target->GetOrientation();
 
                         if (auraId == 26009)
-                            newAngle += M_PI_F/40;
+                            newAngle += M_PI_F / 40;
                         else
-                            newAngle -= M_PI_F/40;
+                            newAngle -= M_PI_F / 40;
 
                         MapManager::NormalizeOrientation(newAngle);
 
@@ -5301,7 +5301,6 @@ void Aura::HandlePeriodicEnergize(bool apply, bool Real)
                 if (Unit* caster = GetCaster())
                     m_modifier.m_amount = int32(caster->GetCreateMana() * GetBasePoints() / (200 * GetAuraMaxTicks()));
                 break;
-
             }
             case 29166:                                     // Innervate (value% of casters base mana)
             {
@@ -5535,11 +5534,11 @@ void Aura::HandlePeriodicDamage(bool apply, bool Real)
                 {
                     if (caster->GetTypeId() != TYPEID_PLAYER)
                         break;
-                    //1 point : ${($m1+$b1*1+0.015*$AP)*4} damage over 8 secs
-                    //2 points: ${($m1+$b1*2+0.024*$AP)*5} damage over 10 secs
-                    //3 points: ${($m1+$b1*3+0.03*$AP)*6} damage over 12 secs
-                    //4 points: ${($m1+$b1*4+0.03428571*$AP)*7} damage over 14 secs
-                    //5 points: ${($m1+$b1*5+0.0375*$AP)*8} damage over 16 secs
+                    // 1 point : ${($m1+$b1*1+0.015*$AP)*4} damage over 8 secs
+                    // 2 points: ${($m1+$b1*2+0.024*$AP)*5} damage over 10 secs
+                    // 3 points: ${($m1+$b1*3+0.03*$AP)*6} damage over 12 secs
+                    // 4 points: ${($m1+$b1*4+0.03428571*$AP)*7} damage over 14 secs
+                    // 5 points: ${($m1+$b1*5+0.0375*$AP)*8} damage over 16 secs
                     float AP_per_combo[6] = {0.0f, 0.015f, 0.024f, 0.03f, 0.03428571f, 0.0375f};
                     uint8 cp = ((Player*)caster)->GetComboPoints();
                     if (cp > 5) cp = 5;
@@ -6671,7 +6670,6 @@ void Aura::HandleShapeshiftBoosts(bool apply)
                 else
                     ++itr;
             }
-
 
             // Master Shapeshifter
             if (MasterShaperSpellId)
@@ -7874,7 +7872,7 @@ void Aura::PeriodicDummyTick()
                     uint32 rand = urand(0, 99);
                     for (uint32 i = 1; i <= 6; ++i)
                     {
-                        if (rand < i * (i+1) /2 * 5)
+                        if (rand < i * (i + 1) / 2 * 5)
                         {
                             target->CastSpell(target, spell->Id + i, true);
                             break;

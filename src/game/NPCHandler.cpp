@@ -118,7 +118,6 @@ void WorldSession::SendTrainerList(ObjectGuid guid)
     SendTrainerList(guid, str);
 }
 
-
 static void SendTrainerSpellHelper(WorldPacket& data, TrainerSpell const* tSpell, TrainerSpellState state, float fDiscountMod, bool can_learn_primary_prof, uint32 reqLevel)
 {
     bool primary_prof_first_rank = sSpellMgr.IsPrimaryProfessionFirstRankSpell(tSpell->learnedSpell);
@@ -294,7 +293,7 @@ void WorldSession::HandleTrainerBuySpellOpcode(WorldPacket& recv_data)
 
     SendPlaySpellVisual(guid, 0xB3);                        // visual effect on trainer
 
-    WorldPacket data(SMSG_PLAY_SPELL_IMPACT, 8+4);          // visual effect on player
+    WorldPacket data(SMSG_PLAY_SPELL_IMPACT, 8 + 4);        // visual effect on player
     data << _player->GetObjectGuid();
     data << uint32(0x016A);                                 // index from SpellVisualKit.dbc
     SendPacket(&data);
@@ -791,7 +790,6 @@ void WorldSession::HandleStableSwapPet(WorldPacket& recv_data)
     // remove fake death
     if (GetPlayer()->hasUnitState(UNIT_STAT_DIED))
         GetPlayer()->RemoveSpellsCausingAura(SPELL_AURA_FEIGN_DEATH);
-
 
     Pet* pet = _player->GetPet();
 

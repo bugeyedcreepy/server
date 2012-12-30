@@ -56,7 +56,6 @@ static bool MapSessionFilterHelper(WorldSession* session, OpcodeHandler const& o
     return plr->IsInWorld();
 }
 
-
 bool MapSessionFilter::Process(WorldPacket* packet)
 {
     OpcodeHandler const& opHandle = opcodeTable[packet->GetOpcode()];
@@ -659,7 +658,6 @@ void WorldSession::LoadAccountData(QueryResult* result, uint32 mask)
 
         m_accountData[type].Time = time_t(fields[1].GetUInt64());
         m_accountData[type].Data = fields[2].GetCppString();
-
     }
     while (result->NextRow());
 
@@ -987,7 +985,7 @@ void WorldSession::ExecuteOpcode(OpcodeHandler const& opHandle, WorldPacket* pac
 
 void WorldSession::SendPlaySpellVisual(ObjectGuid guid, uint32 spellArtKit)
 {
-    WorldPacket data(SMSG_PLAY_SPELL_VISUAL, 8+4);          // visual effect on guid
+    WorldPacket data(SMSG_PLAY_SPELL_VISUAL, 8 + 4);        // visual effect on guid
     data << guid;
     data << spellArtKit;                                    // index from SpellVisualKit.dbc
     SendPacket(&data);
