@@ -170,5 +170,4 @@ void WorldSession::HandleEjectPassenger(WorldPacket& recvPacket)
         return;
 
     _player->RemoveSpellsCausingAura(SPELL_AURA_CONTROL_VEHICLE, passengerGuid);
->>>>>>> cf39794cda856e3a6c8e484012485b841920a56c
 }

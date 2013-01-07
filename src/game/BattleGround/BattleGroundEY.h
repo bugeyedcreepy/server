@@ -1,9 +1,5 @@
 /*
-<<<<<<< HEAD
  * Copyright (C) 2005-2013 MaNGOS <http://getmangos.com/>
-=======
- * Copyright (C) 2005-2012 MaNGOS <http://getmangos.com/>
->>>>>>> cf39794cda856e3a6c8e484012485b841920a56c
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -285,10 +281,6 @@ class BattleGroundEY : public BattleGround
         void HandleKillPlayer(Player* player, Player* killer) override;
 
         virtual WorldSafeLocsEntry const* GetClosestGraveYard(Player* player) override;
-<<<<<<< HEAD
-        virtual bool SetupBattleGround() override;
-=======
->>>>>>> cf39794cda856e3a6c8e484012485b841920a56c
         virtual void Reset() override;
         void UpdateTeamScore(Team team);
         void EndBattleGround(Team winner) override;

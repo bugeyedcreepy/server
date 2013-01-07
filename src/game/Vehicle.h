@@ -43,6 +43,7 @@ class Unit;
 
 struct VehicleEntry;
 struct VehicleSeatEntry;
+
 struct VehicleAccessory
 {
     uint32 vehicleEntry;
@@ -52,7 +53,6 @@ struct VehicleAccessory
 
 typedef std::map<uint8 /*seatPosition*/, VehicleSeatEntry const*> VehicleSeatMap;
 
->>>>>>> cf39794cda856e3a6c8e484012485b841920a56c
 /**
  * A class to provide support for each vehicle. This includes
  * - Boarding and unboarding of passengers, including support to switch vehicles
@@ -74,8 +74,8 @@ class VehicleInfo : public TransportBase
         void UnBoard(Unit* passenger, bool changeVehicle);  // Used to Unboard a passenger from a vehicle
 
         bool CanBoard(Unit* passenger) const;               // Used to check if a Unit can board a vehicle
-
         Unit* GetPassenger(uint8 seat) const;
+
         void RemoveAccessoriesFromMap();                    ///< Unsummones accessory in case of far-teleport or death
 
     private:
