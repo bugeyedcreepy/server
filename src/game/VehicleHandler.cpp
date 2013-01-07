@@ -28,7 +28,7 @@
 
 void WorldSession::HandleDismissControlledVehicle(WorldPacket& recvPacket)
 {
-    DEBUG_LOG("WORLD: Received CMSG_DISMISS_CONTROLLED_VEHICLE");
+    DEBUG_LOG("WORLD: Received opcode CMSG_DISMISS_CONTROLLED_VEHICLE");
     recvPacket.hexlike();
 
     ObjectGuid vehicleGuid;
@@ -53,7 +53,7 @@ void WorldSession::HandleDismissControlledVehicle(WorldPacket& recvPacket)
 
 void WorldSession::HandleRequestVehicleExit(WorldPacket& recvPacket)
 {
-    DEBUG_LOG("WORLD: Received CMSG_REQUEST_VEHICLE_EXIT");
+    DEBUG_LOG("WORLD: Received opcode CMSG_REQUEST_VEHICLE_EXIT");
     recvPacket.hexlike();
 
     TransportInfo* transportInfo = _player->GetTransportInfo();
@@ -65,7 +65,7 @@ void WorldSession::HandleRequestVehicleExit(WorldPacket& recvPacket)
 
 void WorldSession::HandleRequestVehicleSwitchSeat(WorldPacket& recvPacket)
 {
-    DEBUG_LOG("WORLD: Received CMSG_REQUEST_VEHICLE_SWITCH_SEAT");
+    DEBUG_LOG("WORLD: Received opcode CMSG_REQUEST_VEHICLE_SWITCH_SEAT");
     recvPacket.hexlike();
 
     ObjectGuid vehicleGuid;
@@ -89,7 +89,7 @@ void WorldSession::HandleRequestVehicleSwitchSeat(WorldPacket& recvPacket)
 
 void WorldSession::HandleChangeSeatsOnControlledVehicle(WorldPacket& recvPacket)
 {
-    DEBUG_LOG("WORLD: Received CMSG_CHANGE_SEATS_ON_CONTROLLED_VEHICLE");
+    DEBUG_LOG("WORLD: Received opcode CMSG_CHANGE_SEATS_ON_CONTROLLED_VEHICLE");
     recvPacket.hexlike();
 
     ObjectGuid srcVehicleGuid;
@@ -130,4 +130,45 @@ void WorldSession::HandleChangeSeatsOnControlledVehicle(WorldPacket& recvPacket)
     }
     else
         srcVehicle->GetVehicleInfo()->SwitchSeat(_player, seat);
+}
+
+void WorldSession::HandleRideVehicleInteract(WorldPacket& recvPacket)
+{
+    DEBUG_LOG("WORLD: Received opcode CMSG_RIDE_VEHICLE_INTERACT");
+    recvPacket.hexlike();
+
+    ObjectGuid playerGuid;
+    recvPacket >> playerGuid;
+
+    Player* vehicle = _player->GetMap()->GetPlayer(playerGuid);
+
+    if (!vehicle || !vehicle->IsVehicle())
+        return;
+
+    // Only allowed if in same raid
+    if (!vehicle->IsInSameRaidWith(_player))
+        return;
+
+    _player->CastSpell(vehicle, SPELL_RIDE_VEHICLE_HARDCODED, true);
+}
+
+void WorldSession::HandleEjectPassenger(WorldPacket& recvPacket)
+{
+    DEBUG_LOG("WORLD: Received opcode CMSG_CONTROLLER_EJECT_PASSENGER");
+    recvPacket.hexlike();
+
+    ObjectGuid passengerGuid;
+    recvPacket >> passengerGuid;
+
+    Unit* passenger = _player->GetMap()->GetUnit(passengerGuid);
+
+    if (!passenger || !passenger->IsBoarded())
+        return;
+
+    // _player must be transporting passenger
+    if (!_player->IsVehicle() || !_player->GetVehicleInfo()->HasOnBoard(passenger))
+        return;
+
+    _player->RemoveSpellsCausingAura(SPELL_AURA_CONTROL_VEHICLE, passengerGuid);
+>>>>>>> cf39794cda856e3a6c8e484012485b841920a56c
 }

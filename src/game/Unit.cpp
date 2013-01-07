@@ -352,9 +352,16 @@ void Unit::Update(uint32 update_diff, uint32 p_time)
         setAttackTimer(OFF_ATTACK, (update_diff >= base_att ? 0 : base_att - update_diff));
     }
 
-    // Update passenger positions if we are the first vehicle
-    if (IsVehicle() && !IsBoarded())
-        m_vehicleInfo->Update(update_diff);
+    if (IsVehicle())
+    {
+        // Initialize vehicle if not done
+        if (isAlive() && !m_vehicleInfo->IsInitialized())
+            m_vehicleInfo->Initialize();
+
+        // Update passenger positions if we are the first vehicle
+        if (!IsBoarded())
+            m_vehicleInfo->Update(update_diff);
+    }
 
     // update abilities available only for fraction of time
     UpdateReactives(update_diff);
@@ -510,7 +517,7 @@ void Unit::RemoveSpellsCausingAura(AuraType auraType, ObjectGuid casterGuid)
     {
         if ((*iter)->GetCasterGuid() == casterGuid)
         {
-            RemoveAuraHolderFromStack((*iter)->GetId(), 1, casterGuid);
+            RemoveSpellAuraHolder((*iter)->GetHolder());
             iter = m_modAuras[auraType].begin();
         }
         else
@@ -581,15 +588,12 @@ uint32 Unit::DealDamage(Unit* pVictim, uint32 damage, CleanDamage const* cleanDa
         // Critter may not die of damage taken, instead expect it to run away (no fighting back)
         // If (this) is TYPEID_PLAYER, (this) will enter combat w/victim, but after some time, automatically leave combat.
         // It is unclear how it should work for other cases.
-
         DEBUG_FILTER_LOG(LOG_FILTER_DAMAGE, "DealDamage critter, critter dies");
-
-        pVictim->SetDeathState(JUST_DIED);
-        pVictim->SetHealth(0);
 
         ((Creature*)pVictim)->SetLootRecipient(this);
 
-        JustKilledCreature((Creature*)pVictim);
+        JustKilledCreature((Creature*)pVictim, NULL);
+        pVictim->SetHealth(0);
 
         return damage;
     }
@@ -679,10 +683,12 @@ uint32 Unit::DealDamage(Unit* pVictim, uint32 damage, CleanDamage const* cleanDa
 
     if (health <= damage)
     {
-        DEBUG_FILTER_LOG(LOG_FILTER_DAMAGE, "DealDamage: victim just died");
+        DEBUG_FILTER_LOG(LOG_FILTER_DAMAGE, "DealDamage %s Killed %s", GetGuidStr().c_str(), pVictim->GetGuidStr().c_str());
 
-        // find player: owner of controlled `this` or `this` itself maybe
-        // for loot will be sued only if group_tap==NULL
+        /*
+         *                      Preparation: Who gets credit for killing whom, invoke SpiritOfRedemtion?
+         */
+        // for loot will be used only if group_tap == NULL
         Player* player_tap = GetCharmerOrOwnerPlayerOrPlayerItself();
         Group* group_tap = NULL;
 
@@ -701,13 +707,27 @@ uint32 Unit::DealDamage(Unit* pVictim, uint32 damage, CleanDamage const* cleanDa
                 group_tap = player_tap->GetGroup();
         }
 
-        if (pVictim->GetTypeId() == TYPEID_PLAYER)
+        // Spirit of Redemtion Talent
+        bool damageFromSpiritOfRedemtionTalent = spellProto && spellProto->Id == 27795;
+        // if talent known but not triggered (check priest class for speedup check)
+        Aura* spiritOfRedemtionTalentReady = NULL;
+        if (!damageFromSpiritOfRedemtionTalent &&           // not called from SPELL_AURA_SPIRIT_OF_REDEMPTION
+                pVictim->GetTypeId() == TYPEID_PLAYER && pVictim->getClass() == CLASS_PRIEST)
         {
-            ((Player*)pVictim)->UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_TOTAL_DAMAGE_RECEIVED, health);
-            if (player_tap)
-                player_tap->UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_SPECIAL_PVP_KILL, 1, 0, pVictim);
+            AuraList const& vDummyAuras = pVictim->GetAurasByType(SPELL_AURA_DUMMY);
+            for (AuraList::const_iterator itr = vDummyAuras.begin(); itr != vDummyAuras.end(); ++itr)
+            {
+                if ((*itr)->GetSpellProto()->SpellIconID == 1654)
+                {
+                    spiritOfRedemtionTalentReady = *itr;
+                    break;
+                }
+            }
         }
 
+        /*
+         *                      Generic Actions (ProcEvents, Combat-Log, Kill Rewards, Stop Combat)
+         */
         // call kill spell proc event (before real die and combat stop to triggering auras removed at death/combat stop)
         if (player_tap && player_tap != pVictim)
         {
@@ -732,40 +752,18 @@ uint32 Unit::DealDamage(Unit* pVictim, uint32 damage, CleanDamage const* cleanDa
                 player_tap->RewardSinglePlayerAtKill(pVictim);
         }
 
-        DEBUG_FILTER_LOG(LOG_FILTER_DAMAGE, "DealDamageAttackStop");
-
         // stop combat
+        DEBUG_FILTER_LOG(LOG_FILTER_DAMAGE, "DealDamageAttackStop");
         pVictim->CombatStop();
         pVictim->getHostileRefManager().deleteReferences();
 
-        bool damageFromSpiritOfRedemtionTalent = spellProto && spellProto->Id == 27795;
-
-        // if talent known but not triggered (check priest class for speedup check)
-        Aura* spiritOfRedemtionTalentReady = NULL;
-        if (!damageFromSpiritOfRedemtionTalent &&           // not called from SPELL_AURA_SPIRIT_OF_REDEMPTION
-                pVictim->GetTypeId() == TYPEID_PLAYER && pVictim->getClass() == CLASS_PRIEST)
-        {
-            AuraList const& vDummyAuras = pVictim->GetAurasByType(SPELL_AURA_DUMMY);
-            for (AuraList::const_iterator itr = vDummyAuras.begin(); itr != vDummyAuras.end(); ++itr)
-            {
-                if ((*itr)->GetSpellProto()->SpellIconID == 1654)
-                {
-                    spiritOfRedemtionTalentReady = *itr;
-                    break;
-                }
-            }
-        }
-
-        if (!spiritOfRedemtionTalentReady)
-        {
-            DEBUG_FILTER_LOG(LOG_FILTER_DAMAGE, "SET JUST_DIED");
-            pVictim->SetDeathState(JUST_DIED);
-        }
-
-        DEBUG_FILTER_LOG(LOG_FILTER_DAMAGE, "DealDamageHealth1");
-
+        /*
+         *                      Actions for the killer
+         */
         if (spiritOfRedemtionTalentReady)
         {
+            DEBUG_FILTER_LOG(LOG_FILTER_DAMAGE, "DealDamage: Spirit of Redemtion ready");
+
             // save value before aura remove
             uint32 ressSpellId = pVictim->GetUInt32Value(PLAYER_SELF_RES_SPELL);
             if (!ressSpellId)
@@ -783,11 +781,6 @@ uint32 Unit::DealDamage(Unit* pVictim, uint32 damage, CleanDamage const* cleanDa
         else
             pVictim->SetHealth(0);
 
-        // remember victim PvP death for corpse type and corpse reclaim delay
-        // at original death (not at SpiritOfRedemtionTalent timeout)
-        if (pVictim->GetTypeId() == TYPEID_PLAYER && !damageFromSpiritOfRedemtionTalent)
-            ((Player*)pVictim)->SetPvPDeath(player_tap != NULL);
-
         // Call KilledUnit for creatures
         if (GetTypeId() == TYPEID_UNIT && ((Creature*)this)->AI())
             ((Creature*)this)->AI()->KilledUnit(pVictim);
@@ -800,70 +793,66 @@ uint32 Unit::DealDamage(Unit* pVictim, uint32 damage, CleanDamage const* cleanDa
          */
         if (pVictim->GetTypeId() == TYPEID_PLAYER)          // Killed player
         {
-            if (GetTypeId() == TYPEID_UNIT)
-                ((Player*)pVictim)->GetAchievementMgr().UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_KILLED_BY_CREATURE, GetEntry());
-            else if (GetTypeId() == TYPEID_PLAYER && pVictim != this)
-                ((Player*)pVictim)->GetAchievementMgr().UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_KILLED_BY_PLAYER, 1, ((Player*)this)->GetTeam());
-        }
+            Player* playerVictim = (Player*)pVictim;
 
-        // 10% durability loss on death
-        // clean InHateListOf
-        if (pVictim->GetTypeId() == TYPEID_PLAYER)
-        {
+            // remember victim PvP death for corpse type and corpse reclaim delay
+            // at original death (not at SpiritOfRedemtionTalent timeout)
+            if (!damageFromSpiritOfRedemtionTalent)
+                playerVictim->SetPvPDeath(player_tap != NULL);
+
+            // achievement stuff
+            playerVictim->UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_TOTAL_DAMAGE_RECEIVED, health);
+            if (player_tap)
+                player_tap->UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_SPECIAL_PVP_KILL, 1, 0, pVictim);
+            if (GetTypeId() == TYPEID_UNIT)
+                playerVictim->GetAchievementMgr().UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_KILLED_BY_CREATURE, GetEntry());
+            else if (GetTypeId() == TYPEID_PLAYER && pVictim != this)
+                playerVictim->GetAchievementMgr().UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_KILLED_BY_PLAYER, 1, playerVictim->GetTeam());
+
+            // 10% durability loss on death
             // only if not player and not controlled by player pet. And not at BG
-            if (durabilityLoss && !player_tap && !((Player*)pVictim)->InBattleGround())
+            if (durabilityLoss && !player_tap && !playerVictim->InBattleGround())
             {
-                DEBUG_LOG("We are dead, loosing 10 percents durability");
-                ((Player*)pVictim)->DurabilityLossAll(0.10f, false);
+                DEBUG_LOG("DealDamage: Killed %s, looing 10 percents durability", pVictim->GetGuidStr().c_str());
+                playerVictim->DurabilityLossAll(0.10f, false);
                 // durability lost message
                 WorldPacket data(SMSG_DURABILITY_DAMAGE_DEATH, 0);
-                ((Player*)pVictim)->GetSession()->SendPacket(&data);
+                playerVictim->GetSession()->SendPacket(&data);
             }
-        }
-        else                                                // creature died
-        {
-            DEBUG_FILTER_LOG(LOG_FILTER_DAMAGE, "DealDamage Killed NPC");
-            JustKilledCreature((Creature*)pVictim);
-        }
 
-        // last damage from non duel opponent or opponent controlled creature
-        if (duel_hasEnded)
-        {
-            MANGOS_ASSERT(pVictim->GetTypeId() == TYPEID_PLAYER);
-            Player* he = (Player*)pVictim;
-
-            MANGOS_ASSERT(he->duel);
-
-            he->duel->opponent->CombatStopWithPets(true);
-            he->CombatStopWithPets(true);
-
-            he->DuelComplete(DUEL_INTERUPTED);
-        }
-
-        // handle player/npc kill in battleground or outdoor pvp script
-        if (player_tap)
-        {
-            if (pVictim->GetTypeId() == TYPEID_PLAYER)
+            if (!spiritOfRedemtionTalentReady)              // Before informing Battleground
             {
-                Player* killed = (Player*)pVictim;
-                if (killed->InBattleGround())
+                DEBUG_FILTER_LOG(LOG_FILTER_DAMAGE, "SET JUST_DIED");
+                pVictim->SetDeathState(JUST_DIED);
+            }
+
+            // playerVictim was in duel, duel must be interrupted
+            // last damage from non duel opponent or non opponent controlled creature
+            if (duel_hasEnded)
+            {
+                playerVictim->duel->opponent->CombatStopWithPets(true);
+                playerVictim->CombatStopWithPets(true);
+
+                playerVictim->DuelComplete(DUEL_INTERRUPTED);
+            }
+
+            if (player_tap)                                 // PvP kill
+            {
+                if (playerVictim->InBattleGround())
                 {
-                    if (BattleGround* bg = killed->GetBattleGround())
-                        bg->HandleKillPlayer(killed, player_tap);
+                    if (BattleGround* bg = playerVictim->GetBattleGround())
+                        bg->HandleKillPlayer(playerVictim, player_tap);
                 }
                 else if (pVictim != this)
                 {
                     // selfkills are not handled in outdoor pvp scripts
                     if (OutdoorPvP* outdoorPvP = sOutdoorPvPMgr.GetScript(player_tap->GetCachedZoneId()))
-                        outdoorPvP->HandlePlayerKill(player_tap, killed);
+                        outdoorPvP->HandlePlayerKill(player_tap, playerVictim);
                 }
             }
-            else if (pVictim->GetTypeId() == TYPEID_UNIT)
-            {
-                if (BattleGround* bg = player_tap->GetBattleGround())
-                    bg->HandleKillUnit((Creature*)pVictim, player_tap);
-            }
         }
+        else                                                // Killed creature
+            JustKilledCreature((Creature*)pVictim, player_tap);
     }
     else                                                    // if (health <= damage)
     {
@@ -1025,16 +1014,10 @@ struct PetOwnerKilledUnitHelper
     Unit* m_victim;
 };
 
-void Unit::JustKilledCreature(Creature* victim)
+void Unit::JustKilledCreature(Creature* victim, Player* responsiblePlayer)
 {
-    if (!victim->IsPet())                                   // Prepare loot if can
-    {
-        victim->DeleteThreatList();
-        // only lootable if it has loot or can drop gold
-        victim->PrepareBodyLootState();
-        // may have no loot, so update death timer if allowed
-        victim->AllLootRemovedFromCorpse();
-    }
+    victim->m_deathState = DEAD;                            // so that isAlive, isDead return expected results in the called hooks of JustKilledCreature
+                                                            // must be used only shortly before SetDeathState(JUST_DIED) and only for Creatures or Pets
 
     // some critters required for quests (need normal entry instead possible heroic in any cases)
     if (victim->GetCreatureType() == CREATURE_TYPE_CRITTER && GetTypeId() == TYPEID_PLAYER)
@@ -1081,8 +1064,11 @@ void Unit::JustKilledCreature(Creature* victim)
     if (InstanceData* mapInstance = victim->GetInstanceData())
         mapInstance->OnCreatureDeath(victim);
 
+    if (responsiblePlayer)                                  // killedby Player, inform BG
+        if (BattleGround* bg = responsiblePlayer->GetBattleGround())
+            bg->HandleKillUnit(victim, responsiblePlayer);
     // Notify the outdoor pvp script
-    if (OutdoorPvP* outdoorPvP = sOutdoorPvPMgr.GetScript(GetZoneId()))
+    if (OutdoorPvP* outdoorPvP = sOutdoorPvPMgr.GetScript(responsiblePlayer ? responsiblePlayer->GetCachedZoneId() : GetZoneId()))
         outdoorPvP->HandleCreatureDeath(victim);
 
     if (victim->IsLinkingEventTrigger())
@@ -1116,6 +1102,22 @@ void Unit::JustKilledCreature(Creature* victim)
             ((DungeonMap*)m)->GetPersistanceState()->UpdateEncounterState(ENCOUNTER_CREDIT_KILL_CREATURE, victim->GetEntry());
         }
     }
+
+    bool isPet = victim->IsPet();
+
+    /* ********************************* Set Death finally ************************************* */
+    DEBUG_FILTER_LOG(LOG_FILTER_DAMAGE, "SET JUST_DIED");
+    victim->SetDeathState(JUST_DIED);                       // if !spiritOfRedemtionTalentReady always true for unit
+
+    if (isPet)
+        return;                                             // Pets might have been unsummoned at this place, do not handle them further!
+
+    /* ******************************** Prepare loot if can ************************************ */
+    victim->DeleteThreatList();
+    // only lootable if it has loot or can drop gold
+    victim->PrepareBodyLootState();
+    // may have no loot, so update death timer if allowed, must be after SetDeathState(JUST_DIED)
+    victim->AllLootRemovedFromCorpse();
 }
 
 void Unit::PetOwnerKilledUnit(Unit* pVictim)
@@ -1167,6 +1169,15 @@ void Unit::CastSpell(Unit* Victim, SpellEntry const* spellInfo, bool triggered, 
             originalCaster = triggeredByAura->GetCasterGuid();
 
         triggeredBy = triggeredByAura->GetSpellProto();
+    }
+    else
+    {
+        triggeredByAura = GetTriggeredByClientAura(spellInfo->Id);
+        if (triggeredByAura)
+        {
+            triggered = true;
+            triggeredBy = triggeredByAura->GetSpellProto();
+        }
     }
 
     Spell* spell = new Spell(this, spellInfo, triggered, originalCaster, triggeredBy);
@@ -2491,7 +2502,7 @@ void Unit::CalculateAbsorbResistBlock(Unit* pCaster, SpellNonMeleeDamage* damage
     }
 
     uint32 absorb_affected_damage = pCaster->CalcNotIgnoreAbsorbDamage(damageInfo->damage, GetSpellSchoolMask(spellProto), spellProto);
-    CalculateDamageAbsorbAndResist(pCaster, GetSpellSchoolMask(spellProto), SPELL_DIRECT_DAMAGE, absorb_affected_damage, &damageInfo->absorb, &damageInfo->resist, !spellProto->HasAttribute(SPELL_ATTR_EX2_CANT_REFLECTED));
+    CalculateDamageAbsorbAndResist(pCaster, GetSpellSchoolMask(spellProto), SPELL_DIRECT_DAMAGE, absorb_affected_damage, &damageInfo->absorb, &damageInfo->resist, !spellProto->HasAttribute(SPELL_ATTR_EX_CANT_REFLECTED));
     damageInfo->damage -= damageInfo->absorb + damageInfo->resist;
 }
 
@@ -2661,14 +2672,13 @@ MeleeHitOutcome Unit::RollMeleeOutcomeAgainst(const Unit* pVictim, WeaponAttackT
 
     // bonus from skills is 0.04%
     int32 skillBonus  = 4 * (attackerWeaponSkill - victimMaxSkillValueForLevel);
-    int32    sum = 0, tmp = 0;
+    int32 sum = 0;
     int32 roll = urand(0, 10000);
+    int32 tmp = miss_chance;
 
     DEBUG_FILTER_LOG(LOG_FILTER_COMBAT, "RollMeleeOutcomeAgainst: skill bonus of %d for attacker", skillBonus);
     DEBUG_FILTER_LOG(LOG_FILTER_COMBAT, "RollMeleeOutcomeAgainst: rolled %d, miss %d, dodge %d, parry %d, block %d, crit %d",
                      roll, miss_chance, dodge_chance, parry_chance, block_chance, crit_chance);
-
-    tmp = miss_chance;
 
     if (tmp > 0 && roll < (sum += tmp))
     {
@@ -3223,7 +3233,7 @@ SpellMissInfo Unit::SpellHitResult(Unit* pVictim, SpellEntry const* spell, bool 
         return SPELL_MISS_EVADE;
 
     // Check for immune
-    if (pVictim->IsImmuneToSpell(spell))
+    if (pVictim->IsImmuneToSpell(spell, this == pVictim))
         return SPELL_MISS_IMMUNE;
 
     // All positive spells can`t miss
@@ -4124,10 +4134,12 @@ bool Unit::AddSpellAuraHolder(SpellAuraHolder* holder)
         }
     }
 
-    // passive auras not stackable with other ranks
-    if (!IsPassiveSpellStackableWithRanks(aurSpellInfo))
+    // normal spell or passive auras not stackable with other ranks
+    if (!IsPassiveSpell(aurSpellInfo) || !IsPassiveSpellStackableWithRanks(aurSpellInfo))
     {
-        if (!RemoveNoStackAurasDueToAuraHolder(holder))
+        // Hack exceptions for Vehicle/Linked auras
+        if (!IsSpellHaveAura(aurSpellInfo, SPELL_AURA_CONTROL_VEHICLE) && !IsSpellHaveAura(aurSpellInfo, SPELL_AURA_284) &&
+            !RemoveNoStackAurasDueToAuraHolder(holder))
         {
             delete holder;
             return false;                                   // couldn't remove conflicting aura with higher rank
@@ -4280,11 +4292,8 @@ bool Unit::RemoveNoStackAurasDueToAuraHolder(SpellAuraHolder* holder)
     uint32 spellId = holder->GetId();
 
     // passive spell special case (only non stackable with ranks)
-    if (IsPassiveSpell(spellProto))
-    {
-        if (IsPassiveSpellStackableWithRanks(spellProto))
-            return true;
-    }
+    if (IsPassiveSpell(spellProto) && IsPassiveSpellStackableWithRanks(spellProto))
+        return true;
 
     SpellSpecific spellId_spec = GetSpellSpecific(spellId);
 
@@ -4969,6 +4978,23 @@ void Unit::RemoveAllAurasOnDeath()
     }
 }
 
+void Unit::RemoveAllAurasOnEvade()
+{
+    // used when evading to remove all auras except some special auras
+    // Vehicle control auras should not be removed on evade - neither should linked auras
+    for (SpellAuraHolderMap::iterator iter = m_spellAuraHolders.begin(); iter != m_spellAuraHolders.end();)
+    {
+        SpellEntry const* proto = iter->second->GetSpellProto();
+        if (!IsSpellHaveAura(proto, SPELL_AURA_CONTROL_VEHICLE))
+        {
+            RemoveSpellAuraHolder(iter->second, AURA_REMOVE_BY_DEFAULT);
+            iter = m_spellAuraHolders.begin();
+        }
+        else
+            ++iter;
+    }
+}
+
 void Unit::DelaySpellAuraHolder(uint32 spellId, int32 delaytime, ObjectGuid casterGuid)
 {
     SpellAuraHolderBounds bounds = GetSpellAuraHolderBounds(spellId);
@@ -5039,6 +5065,25 @@ Aura* Unit::GetAura(AuraType type, SpellFamily family, uint64 familyFlag, uint32
         if ((*i)->GetSpellProto()->IsFitToFamily(family, familyFlag, familyFlag2) &&
                 (!casterGuid || (*i)->GetCasterGuid() == casterGuid))
             return *i;
+
+    return NULL;
+}
+
+Aura* Unit::GetTriggeredByClientAura(uint32 spellId) const
+{
+    MANGOS_ASSERT(spellId);
+
+    AuraList const& auras = GetAurasByType(SPELL_AURA_PERIODIC_TRIGGER_BY_CLIENT);
+    for (AuraList::const_iterator itr = auras.begin(); itr != auras.end(); ++itr)
+    {
+        SpellAuraHolder const* holder = (*itr)->GetHolder();
+        if (!holder || holder->IsDeleted())
+            continue;
+
+        // NOTE for further development: If there are more spells of this aura type, it might be required to check that this is the effect that applies SPELL_AURA_PERIODIC_TRIGGER_BY_CLIENT
+        if (holder->GetCasterGuid() == GetObjectGuid() && holder->GetSpellProto()->EffectTriggerSpell[(*itr)->GetEffIndex()] == spellId)
+            return *itr;
+    }
 
     return NULL;
 }
@@ -7340,7 +7385,7 @@ bool Unit::IsImmunedToDamage(SpellSchoolMask shoolMask)
     return false;
 }
 
-bool Unit::IsImmuneToSpell(SpellEntry const* spellInfo)
+bool Unit::IsImmuneToSpell(SpellEntry const* spellInfo, bool castOnSelf)
 {
     if (!spellInfo)
         return false;
@@ -7379,7 +7424,7 @@ bool Unit::IsImmuneToSpell(SpellEntry const* spellInfo)
     return false;
 }
 
-bool Unit::IsImmuneToSpellEffect(SpellEntry const* spellInfo, SpellEffectIndex index) const
+bool Unit::IsImmuneToSpellEffect(SpellEntry const* spellInfo, SpellEffectIndex index, bool castOnSelf) const
 {
     // If m_immuneToEffect type contain this effect type, IMMUNE effect.
     uint32 effect = spellInfo->Effect[index];
@@ -7988,9 +8033,10 @@ void Unit::ClearInCombat()
         RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PET_IN_COMBAT);
 
     // Player's state will be cleared in Player::UpdateContestedPvP
-    if (GetTypeId() != TYPEID_PLAYER)
+    if (GetTypeId() == TYPEID_UNIT)
     {
-        if (((Creature*)this)->GetCreatureInfo()->unit_flags & UNIT_FLAG_OOC_NOT_ATTACKABLE)
+        Creature* cThis = static_cast<Creature*>(this);
+        if (cThis->GetCreatureInfo()->unit_flags & UNIT_FLAG_OOC_NOT_ATTACKABLE && !(cThis->GetTemporaryFactionFlags() & TEMPFACTION_TOGGLE_OOC_NOT_ATTACK))
             SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_OOC_NOT_ATTACKABLE);
 
         clearUnitState(UNIT_STAT_ATTACK_PLAYER);
@@ -8103,8 +8149,8 @@ bool Unit::isVisibleForOrDetect(Unit const* u, WorldObject const* viewPoint, boo
     if (!at_same_transport && (!IsInWorld() || !u->IsInWorld()))
         return false;
 
-    // forbidden to seen (at GM respawn command)
-    if (m_Visibility == VISIBILITY_RESPAWN)
+    // forbidden to seen (while Removing corpse)
+    if (m_Visibility == VISIBILITY_REMOVE_CORPSE)
         return false;
 
     Map& _map = *u->GetMap();
@@ -8551,7 +8597,7 @@ void Unit::SetSpeedRate(UnitMoveType mtype, float rate, bool forced)
                 ++((Player*)this)->m_forced_speed_changes[mtype];
             }
 
-            WorldPacket data(SetSpeed2Opc_table[mtype][1], 18);
+            WorldPacket data(Opcodes(SetSpeed2Opc_table[mtype][1]), 18);
             data << GetPackGUID();
             data << (uint32)0;                              // moveEvent, NUM_PMOVE_EVTS = 0x39
             if (mtype == MOVE_RUN)
@@ -8563,7 +8609,7 @@ void Unit::SetSpeedRate(UnitMoveType mtype, float rate, bool forced)
         {
             m_movementInfo.UpdateTime(WorldTimer::getMSTime());
 
-            WorldPacket data(SetSpeed2Opc_table[mtype][0], 64);
+            WorldPacket data(Opcodes(SetSpeed2Opc_table[mtype][0]), 64);
             data << GetPackGUID();
             data << m_movementInfo;
             data << float(GetSpeed(mtype));
@@ -8597,6 +8643,10 @@ void Unit::SetDeathState(DeathState s)
         i_motionMaster.MoveIdle();
         StopMoving();
 
+        // Unsummon vehicle accessories
+        if (IsVehicle())
+            m_vehicleInfo->RemoveAccessoriesFromMap();
+
         ModifyAuraState(AURA_STATE_HEALTHLESS_20_PERCENT, false);
         ModifyAuraState(AURA_STATE_HEALTHLESS_35_PERCENT, false);
         // remove aurastates allowing special moves
@@ -8621,14 +8671,14 @@ void Unit::SetDeathState(DeathState s)
 ########                          ########
 ########################################*/
 
-bool Unit::CanHaveThreatList() const
+bool Unit::CanHaveThreatList(bool ignoreAliveState/*=false*/) const
 {
     // only creatures can have threat list
     if (GetTypeId() != TYPEID_UNIT)
         return false;
 
     // only alive units can have threat list
-    if (!isAlive())
+    if (!isAlive() && !ignoreAliveState)
         return false;
 
     Creature const* creature = ((Creature const*)this);
@@ -8676,7 +8726,7 @@ void Unit::AddThreat(Unit* pVictim, float threat /*= 0.0f*/, bool crit /*= false
 
 void Unit::DeleteThreatList()
 {
-    if (CanHaveThreatList() && !m_ThreatManager.isThreatListEmpty())
+    if (CanHaveThreatList(true) && !m_ThreatManager.isThreatListEmpty())
         SendThreatClear();
 
     m_ThreatManager.clearReferences();
@@ -9637,8 +9687,24 @@ void CharmInfo::InitPetActionBar()
 
 void CharmInfo::InitEmptyActionBar()
 {
-    for (uint32 x = ACTION_BAR_INDEX_START + 1; x < ACTION_BAR_INDEX_END; ++x)
+    for (uint32 x = ACTION_BAR_INDEX_START; x < ACTION_BAR_INDEX_END; ++x)
         SetActionBar(x, 0, ACT_PASSIVE);
+}
+
+void CharmInfo::InitVehicleCreateSpells()
+{
+    InitEmptyActionBar();
+
+    if (m_unit->GetTypeId() == TYPEID_PLAYER)               // player vehicles don't have spells, keep the action bar empty
+        return;
+
+    for (uint32 x = 0; x < CREATURE_MAX_SPELLS; ++x)
+    {
+        if (IsPassiveSpell(((Creature*)m_unit)->m_spells[x]))
+            m_unit->CastSpell(m_unit, ((Creature*)m_unit)->m_spells[x], true);
+        else
+            AddSpellToActionBar(((Creature*)m_unit)->m_spells[x], ActiveStates(0x8 + x));
+    }
 }
 
 void CharmInfo::InitPossessCreateSpells()
@@ -10071,33 +10137,6 @@ Player* Unit::GetSpellModOwner() const
 }
 
 ///----------Pet responses methods-----------------
-void Unit::SendPetCastFail(uint32 spellid, SpellCastResult msg)
-{
-    if (msg == SPELL_CAST_OK)
-        return;
-
-    Unit* owner = GetCharmerOrOwner();
-    if (!owner || owner->GetTypeId() != TYPEID_PLAYER)
-        return;
-
-    WorldPacket data(SMSG_PET_CAST_FAILED, 1 + 4 + 1);
-    data << uint8(0);                                       // cast count?
-    data << uint32(spellid);
-    data << uint8(msg);
-
-    // More cases exist, see Spell::SendCastResult (can possibly be unified)
-    switch (msg)
-    {
-        case SPELL_FAILED_NOT_READY:
-            data << uint32(0);                              // unknown
-            break;
-        default:
-            break;
-    }
-
-    ((Player*)owner)->GetSession()->SendPacket(&data);
-}
-
 void Unit::SendPetActionFeedback(uint8 msg)
 {
     Unit* owner = GetOwner();
@@ -10417,7 +10456,7 @@ Unit* Unit::SelectRandomUnfriendlyTarget(Unit* except /*= NULL*/, float radius /
 {
     std::list<Unit*> targets;
 
-    MaNGOS::AnyUnfriendlyUnitInObjectRangeCheck u_check(this, this, radius);
+    MaNGOS::AnyUnfriendlyUnitInObjectRangeCheck u_check(this, radius);
     MaNGOS::UnitListSearcher<MaNGOS::AnyUnfriendlyUnitInObjectRangeCheck> searcher(targets, u_check);
     Cell::VisitAllObjects(this, searcher, radius);
 
@@ -10766,8 +10805,8 @@ void Unit::KnockBackWithAngle(float angle, float horizontalSpeed, float vertical
         GetPosition(ox, oy, oz);
         float fx = ox + dis * vcos;
         float fy = oy + dis * vsin;
-        float fz = oz;
-        GetMap()->GetObjectHitPos(ox, oy, oz + 0.5f, fx, fy, oz + 0.5f, fx, fy, fz, -0.5f);
+        float fz = oz + 0.5f;
+        GetMap()->GetHitPosition(ox, oy, oz + 0.5f, fx, fy, fz, GetPhaseMask(), -0.5f);
         UpdateAllowedPositionZ(fx, fy, fz);
         GetMotionMaster()->MoveJump(fx, fy, fz, horizontalSpeed, max_height);
     }
@@ -11039,7 +11078,11 @@ void Unit::OnRelocated()
     ScheduleAINotify(World::GetRelocationAINotifyDelay());
 }
 
-void Unit::SetVehicleId(uint32 entry)
+/**
+ * @param entry             entry of the vehicle kit
+ * @param overwriteNpcEntry use to select behaviour (like accessory) for this entry instead of GetEntry()'s result
+ */
+void Unit::SetVehicleId(uint32 entry, uint32 overwriteNpcEntry)
 {
     delete m_vehicleInfo;
 
@@ -11048,7 +11091,7 @@ void Unit::SetVehicleId(uint32 entry)
         VehicleEntry const* ventry = sVehicleStore.LookupEntry(entry);
         MANGOS_ASSERT(ventry != NULL);
 
-        m_vehicleInfo = new VehicleInfo(this, ventry);
+        m_vehicleInfo = new VehicleInfo(this, ventry, overwriteNpcEntry);
         m_updateFlag |= UPDATEFLAG_VEHICLE;
     }
     else

@@ -190,7 +190,7 @@ void PlayerMenu::SendGossipMenu(uint32 TitleTextId, ObjectGuid objectGuid)
     }
 
     GetMenuSession()->SendPacket(&data);
-    // DEBUG_LOG( "WORLD: Sent SMSG_GOSSIP_MESSAGE NPCGuid=%u",GUID_LOPART(npcGUID) );
+    DEBUG_LOG("WORLD: Sent SMSG_GOSSIP_MESSAGE from %s", objectGuid.GetString().c_str());
 }
 
 void PlayerMenu::CloseGossip()

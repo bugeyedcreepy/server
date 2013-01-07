@@ -77,11 +77,11 @@ struct AccountData
 
 struct AddonInfo
 {
-    AddonInfo(const std::string& name, uint8 enabled, uint32 crc)
+    AddonInfo(const std::string& name, uint8 enabled, uint32 crc) :
+        Name(name),
+        Enabled(enabled),
+        CRC(crc)
     {
-        Name = name;
-        Enabled = enabled;
-        CRC = crc;
     }
 
     std::string Name;
@@ -526,6 +526,8 @@ class MANGOS_DLL_SPEC WorldSession
         void HandleRequestVehicleExit(WorldPacket& recvPacket);
         void HandleRequestVehicleSwitchSeat(WorldPacket& recvPacket);
         void HandleChangeSeatsOnControlledVehicle(WorldPacket& recvPacket);
+        void HandleRideVehicleInteract(WorldPacket& recvPacket);
+        void HandleEjectPassenger(WorldPacket& recvPacket);
 
         void HandleRequestRaidInfoOpcode(WorldPacket& recv_data);
 

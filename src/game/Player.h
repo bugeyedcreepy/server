@@ -745,7 +745,7 @@ enum RestType
 
 enum DuelCompleteType
 {
-    DUEL_INTERUPTED = 0,
+    DUEL_INTERRUPTED            = 0,
     DUEL_WON                    = 1,
     DUEL_FLED                   = 2
 };
@@ -1201,7 +1201,7 @@ class MANGOS_DLL_SPEC Player : public Unit
         bool StoreNewItemInBestSlots(uint32 item_id, uint32 item_count);
         Item* StoreNewItemInInventorySlot(uint32 itemEntry, uint32 amount);
 
-        void AutoStoreLoot(uint32 loot_id, LootStore const& store, bool broadcast = false, uint8 bag = NULL_BAG, uint8 slot = NULL_SLOT);
+        void AutoStoreLoot(WorldObject const* lootTarget, uint32 loot_id, LootStore const& store, bool broadcast = false, uint8 bag = NULL_BAG, uint8 slot = NULL_SLOT);
         void AutoStoreLoot(Loot& loot, bool broadcast = false, uint8 bag = NULL_BAG, uint8 slot = NULL_SLOT);
 
         Item* ConvertItem(Item* item, uint32 newItemId);
@@ -1556,7 +1556,7 @@ class MANGOS_DLL_SPEC Player : public Unit
         TrainerSpellState GetTrainerSpellState(TrainerSpell const* trainer_spell, uint32 reqLevel) const;
         bool IsSpellFitByClassAndRace(uint32 spell_id, uint32* pReqlevel = NULL) const;
         bool IsNeedCastPassiveLikeSpellAtLearn(SpellEntry const* spellInfo) const;
-        bool IsImmuneToSpellEffect(SpellEntry const* spellInfo, SpellEffectIndex index) const override;
+        bool IsImmuneToSpellEffect(SpellEntry const* spellInfo, SpellEffectIndex index, bool castOnSelf) const override;
 
         void SendProficiency(ItemClass itemClass, uint32 itemSubclassMask);
         void SendInitialSpells();
@@ -2605,6 +2605,8 @@ class MANGOS_DLL_SPEC Player : public Unit
 
         uint32 m_lastFallTime;
         float  m_lastFallZ;
+
+        LiquidTypeEntry const* m_lastLiquid;
 
         int32 m_MirrorTimer[MAX_TIMERS];
         uint8 m_MirrorTimerFlags;
