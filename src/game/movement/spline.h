@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2012 MaNGOS <http://getmangos.com/>
+ * Copyright (C) 2005-2013 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -202,7 +202,6 @@ namespace Movement
             void set_length(index_type i, length_type length) { lengths[i] = length;}
             void clear();
     };
-
 }
 
 #include "spline.impl.h"

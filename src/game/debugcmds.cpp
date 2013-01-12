@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2012 MaNGOS <http://getmangos.com/>
+ * Copyright (C) 2005-2013 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -26,7 +26,7 @@
 #include "Unit.h"
 #include "GossipDef.h"
 #include "Language.h"
-#include "BattleGroundMgr.h"
+#include "BattleGround/BattleGroundMgr.h"
 #include <fstream>
 #include "ObjectMgr.h"
 #include "ObjectGuid.h"
@@ -129,7 +129,7 @@ bool ChatHandler::HandleDebugSendOpcodeCommand(char* /*args*/)
     uint32 opcode;
     ifs >> opcode;
 
-    WorldPacket data(opcode, 0);
+    WorldPacket data(Opcodes(opcode), 0);
 
     while (!ifs.eof())
     {
@@ -186,7 +186,7 @@ bool ChatHandler::HandleDebugSendOpcodeCommand(char* /*args*/)
         }
     }
     ifs.close();
-    DEBUG_LOG("Sending opcode %u", data.GetOpcode());
+    DEBUG_LOG("Sending opcode %u, %s", data.GetOpcode(), data.GetOpcodeName());
     data.hexlike();
     ((Player*)unit)->GetSession()->SendPacket(&data);
     PSendSysMessage(LANG_COMMAND_OPCODESENT, data.GetOpcode(), unit->GetName());
@@ -1097,7 +1097,7 @@ bool ChatHandler::HandleDebugSpellModsCommand(char* args)
     if (!typeStr)
         return false;
 
-    uint16 opcode;
+    Opcodes opcode;
     if (strncmp(typeStr, "flat", strlen(typeStr)) == 0)
         opcode = SMSG_SET_FLAT_SPELL_MODIFIER;
     else if (strncmp(typeStr, "pct", strlen(typeStr)) == 0)

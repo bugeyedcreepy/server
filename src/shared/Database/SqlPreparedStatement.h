@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2012 MaNGOS <http://getmangos.com/>
+ * Copyright (C) 2005-2013 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -316,7 +316,10 @@ class MANGOS_DLL_SPEC SqlPreparedStatement
         virtual bool execute() = 0;
 
     protected:
-        SqlPreparedStatement(const std::string& fmt, SqlConnection& conn) : m_szFmt(fmt), m_nParams(0), m_nColumns(0), m_bPrepared(false), m_bIsQuery(false), m_pConn(conn) {}
+        SqlPreparedStatement(const std::string& fmt, SqlConnection& conn) :
+            m_nParams(0), m_nColumns(0), m_bIsQuery(false),
+            m_bPrepared(false), m_szFmt(fmt), m_pConn(conn)
+        {}
 
         uint32 m_nParams;
         uint32 m_nColumns;

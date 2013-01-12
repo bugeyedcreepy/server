@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2012 MaNGOS <http://getmangos.com/>
+ * Copyright (C) 2005-2013 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -101,9 +101,9 @@ class OutdoorPvPMgr
 
         void Update(uint32 diff);
 
-        // Handle capture point stuff
-        int8 GetCapturePointSliderValue(uint32 entry);
-        void SetCapturePointSlider(uint32 entry, int8 value) { m_capturePointSlider[entry] = value; }
+        // Save and load capture point slider values
+        float GetCapturePointSliderValue(uint32 entry, float defaultValue);
+        void SetCapturePointSlider(uint32 entry, float value) { m_capturePointSlider[entry] = value; }
 
     private:
         // return assigned outdoor pvp script
@@ -112,7 +112,9 @@ class OutdoorPvPMgr
         // contains all outdoor pvp scripts
         OutdoorPvP* m_scripts[MAX_OPVP_ID];
 
-        std::map<uint32 /*capture point entry*/, int8 /*slider value*/> m_capturePointSlider;
+        typedef std::map<uint32 /*capture point entry*/, float /*slider value*/> CapturePointSliderMap;
+
+        CapturePointSliderMap m_capturePointSlider;
 
         // update interval
         ShortIntervalTimer m_updateTimer;

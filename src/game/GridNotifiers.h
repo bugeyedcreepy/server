@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2012 MaNGOS <http://getmangos.com/>
+ * Copyright (C) 2005-2013 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -761,6 +761,38 @@ namespace MaNGOS
             GameObjectEntryInPosRangeCheck(GameObjectEntryInPosRangeCheck const&);
     };
 
+    // Success at gameobject of type in range of provided xyz
+    class GameObjectTypeInPosRangeCheck
+    {
+        public:
+            GameObjectTypeInPosRangeCheck(Unit const& obj, GameobjectTypes type, float x, float y, float z, float range, bool onlyHostile, bool onlyFriendly)
+                : i_obj(obj), i_type(type), i_x(x), i_y(y), i_z(z), i_range(range), i_onlyHostile(onlyHostile), i_onlyFriendly(onlyFriendly) {}
+
+            WorldObject const& GetFocusObject() const { return i_obj; }
+
+            bool operator()(GameObject* go)
+            {
+                if (go->GetGoType() == i_type
+                        && (!i_onlyHostile || go->IsHostileTo(&i_obj)) && (!i_onlyFriendly || go->IsFriendlyTo(&i_obj))
+                        && go->IsWithinDist3d(i_x, i_y, i_z, i_range))
+                    return true;
+
+                return false;
+            }
+
+            float GetLastRange() const { return i_range; }
+
+        private:
+            Unit const& i_obj;
+            GameobjectTypes i_type;
+            float i_x, i_y, i_z;
+            float i_range;
+            bool i_onlyHostile, i_onlyFriendly;
+
+            // prevent clone this object
+            GameObjectTypeInPosRangeCheck(GameObjectTypeInPosRangeCheck const&);
+    };
+
     // Unit checks
 
     class MostHPMissingInRangeCheck
@@ -825,18 +857,22 @@ namespace MaNGOS
     class AnyUnfriendlyUnitInObjectRangeCheck
     {
         public:
-            AnyUnfriendlyUnitInObjectRangeCheck(WorldObject const* obj, Unit const* funit, float range) : i_obj(obj), i_funit(funit), i_range(range) {}
+            AnyUnfriendlyUnitInObjectRangeCheck(WorldObject const* obj, float range) : i_obj(obj), i_range(range)
+            {
+                i_controlledByPlayer = obj->IsControlledByPlayer();
+            }
             WorldObject const& GetFocusObject() const { return *i_obj; }
             bool operator()(Unit* u)
             {
-                if (u->isAlive() && i_obj->IsWithinDistInMap(u, i_range) && !i_funit->IsFriendlyTo(u))
+                if (u->isAlive() && (i_controlledByPlayer ? !i_obj->IsFriendlyTo(u) : i_obj->IsHostileTo(u))
+                        && i_obj->IsWithinDistInMap(u, i_range))
                     return true;
                 else
                     return false;
             }
         private:
             WorldObject const* i_obj;
-            Unit const* i_funit;
+            bool i_controlledByPlayer;
             float i_range;
     };
 
@@ -1174,15 +1210,15 @@ namespace MaNGOS
             uint32 i_spellId;
     };
 
-    class AnyPlayerInObjectRangeWithOutdoorPvPCheck
+    class AnyPlayerInCapturePointRange
     {
         public:
-            AnyPlayerInObjectRangeWithOutdoorPvPCheck(WorldObject const* obj, float range)
+            AnyPlayerInCapturePointRange(WorldObject const* obj, float range)
                 : i_obj(obj), i_range(range) {}
             WorldObject const& GetFocusObject() const { return *i_obj; }
             bool operator()(Player* u)
             {
-                return u->CanUseOutdoorCapturePoint() &&
+                return u->CanUseCapturePoint() &&
                        i_obj->IsWithinDistInMap(u, i_range);
             }
         private:

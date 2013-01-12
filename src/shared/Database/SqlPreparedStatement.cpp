@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2012 MaNGOS <http://getmangos.com/>
+ * Copyright (C) 2005-2013 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -151,7 +151,8 @@ void SqlPlainPreparedStatement::DataToString(const SqlStmtFieldData& data, std::
             std::string tmp = data.toStr();
             m_pConn.DB().escape_string(tmp);
             fmt << "'" << tmp << "'";
+            break;
         }
-        break;
+        case FIELD_NONE:                                                    break;
     }
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2012 MaNGOS <http://getmangos.com/>
+ * Copyright (C) 2005-2013 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -33,7 +33,7 @@ inline void* dtCustomAlloc(int size, dtAllocHint /*hint*/)
 
 inline void dtCustomFree(void* ptr)
 {
-    delete[] (unsigned char*)ptr;
+    delete[](unsigned char*)ptr;
 }
 
 //  move map related classes
@@ -61,7 +61,6 @@ namespace MMAP
         NavMeshQuerySet navMeshQueries;     // instanceId to query
         MMapTileSet mmapLoadedTiles;        // maps [map grid coords] to [dtTile]
     };
-
 
     typedef UNORDERED_MAP<uint32, MMapData*> MMapDataSet;
 

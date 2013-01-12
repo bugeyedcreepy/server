@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2012 MaNGOS <http://getmangos.com/>
+ * Copyright (C) 2005-2013 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,7 +20,7 @@
 #define MANGOSSERVER_MOVESPLINEINIT_H
 
 #include "MoveSplineInitArgs.h"
-#include "../PathFinder.h"
+#include "PathFinder.h"
 
 class Unit;
 
@@ -112,6 +112,14 @@ namespace Movement
              */
             void SetVelocity(float velocity);
 
+            /* Sets BoardVehicle flag
+             */
+            void SetBoardVehicle();
+
+            /* Sets ExitVehicle flag
+             */
+            void SetExitVehicle();
+
             PointsArray& Path() { return args.path; }
 
         protected:
@@ -128,6 +136,8 @@ namespace Movement
     inline void MoveSplineInit::SetVelocity(float vel) {  args.velocity = vel;}
     inline void MoveSplineInit::SetOrientationInversed() { args.flags.orientationInversed = true;}
     inline void MoveSplineInit::SetOrientationFixed(bool enable) { args.flags.orientationFixed = enable;}
+    inline void MoveSplineInit::SetBoardVehicle() { args.flags.EnableBoardVehicle(); }
+    inline void MoveSplineInit::SetExitVehicle() { args.flags.EnableExitVehicle(); }
 
     inline void MoveSplineInit::MovebyPath(const PointsArray& controls, int32 path_offset)
     {

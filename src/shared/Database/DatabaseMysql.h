@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2012 MaNGOS <http://getmangos.com/>
+ * Copyright (C) 2005-2013 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -52,7 +52,7 @@ class MANGOS_DLL_SPEC MySqlPreparedStatement : public SqlPreparedStatement
 
     protected:
         // bind parameters
-        void addParam(int nIndex, const SqlStmtFieldData& data);
+        void addParam(unsigned int nIndex, const SqlStmtFieldData& data);
 
         static enum_field_types ToMySQLType(const SqlStmtFieldData& data, my_bool& bUnsigned);
 

@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2005-2012 MaNGOS project <http://getmangos.com/>
+# Copyright (C) 2005-2013 MaNGOS project <http://getmangos.com/>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -17,7 +17,7 @@
 #
 
 project(MaNGOS)
-set(MANGOS_VERSION 0.17.0)
+set(MANGOS_VERSION 0.17)
 
 # CMake policies
 cmake_minimum_required(VERSION 2.8)

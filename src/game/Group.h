@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2012 MaNGOS <http://getmangos.com/>
+ * Copyright (C) 2005-2013 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -23,7 +23,7 @@
 #include "ObjectGuid.h"
 #include "GroupReference.h"
 #include "GroupRefManager.h"
-#include "BattleGround.h"
+#include "BattleGround/BattleGround.h"
 #include "LootMgr.h"
 #include "DBCEnums.h"
 #include "SharedDefines.h"
@@ -78,7 +78,6 @@ enum RollVoteMask
 
     ROLL_VOTE_MASK_ALL        = 0x0F,
 };
-
 
 enum GroupMemberFlags
 {

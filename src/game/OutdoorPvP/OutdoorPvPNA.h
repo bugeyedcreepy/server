@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2012 MaNGOS <http://getmangos.com/>
+ * Copyright (C) 2005-2013 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,12 +21,12 @@
 
 #include "Common.h"
 #include "OutdoorPvP.h"
-#include "../Language.h"
+#include "Language.h"
 
 enum
 {
     MAX_NA_GUARDS                           = 15,
-    MAX_NA_ROOSTS                           = 4,                // roosts for each type and team
+    MAX_NA_ROOSTS                           = 4,            // roosts for each type and team
     MAX_FIRE_BOMBS                          = 10,
 
     // spells
@@ -171,7 +171,7 @@ class OutdoorPvPNA : public OutdoorPvP
         void HandleGameObjectCreate(GameObject* go) override;
         void HandleCreatureDeath(Creature* creature) override;
 
-        void HandlePlayerKillInsideArea(Player* player, Unit* victim) override;
+        void HandlePlayerKillInsideArea(Player* player) override;
         bool HandleGameObjectUse(Player* player, GameObject* go) override;
         void Update(uint32 diff) override;
 

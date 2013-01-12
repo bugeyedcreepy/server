@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2012 MaNGOS <http://getmangos.com/>
+ * Copyright (C) 2005-2013 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -574,7 +574,7 @@ void Channel::Say(ObjectGuid p, const char* what, uint32 lang)
         data << ObjectGuid(p);
         data << uint32(messageLength);
         data << what;
-        data << uint8(plr ? plr->GetChatTag() : CHAT_TAG_NONE);
+        data << uint8(plr ? plr->GetChatTag() : uint8(CHAT_TAG_NONE));
 
         SendToAll(&data, !m_players[p].IsModerator() ? p : ObjectGuid());
     }
@@ -675,12 +675,10 @@ void Channel::SendToOne(WorldPacket* data, ObjectGuid who)
 
 void Channel::Voice(ObjectGuid /*guid1*/, ObjectGuid /*guid2*/)
 {
-
 }
 
 void Channel::DeVoice(ObjectGuid /*guid1*/, ObjectGuid /*guid2*/)
 {
-
 }
 
 // done
