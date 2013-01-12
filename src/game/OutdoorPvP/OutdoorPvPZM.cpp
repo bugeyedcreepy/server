@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2012 MaNGOS <http://getmangos.com/>
+ * Copyright (C) 2005-2013 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,12 +18,12 @@
 
 #include "OutdoorPvPZM.h"
 #include "WorldPacket.h"
-#include "../World.h"
-#include "../ObjectMgr.h"
-#include "../Object.h"
-#include "../Creature.h"
-#include "../GameObject.h"
-#include "../Player.h"
+#include "World.h"
+#include "ObjectMgr.h"
+#include "Object.h"
+#include "Creature.h"
+#include "GameObject.h"
+#include "Player.h"
 
 OutdoorPvPZM::OutdoorPvPZM() : OutdoorPvP(),
     m_graveyardOwner(TEAM_NONE),
@@ -97,19 +97,19 @@ void OutdoorPvPZM::HandleCreatureCreate(Creature* creature)
     switch (creature->GetEntry())
     {
         case NPC_PVP_BEAM_RED:
-            if (creature->GetPositionY() < 7000.0f)                 // East Beam
+            if (creature->GetPositionY() < 7000.0f)         // East Beam
                 m_beamTowerRed[0] = creature->GetObjectGuid();
-            else if (creature->GetPositionY() < 7300.0f)            // Center Beam
+            else if (creature->GetPositionY() < 7300.0f)    // Center Beam
                 m_beamGraveyardRed = creature->GetObjectGuid();
-            else                                                    // West Beam
+            else                                            // West Beam
                 m_beamTowerRed[1] = creature->GetObjectGuid();
             break;
         case NPC_PVP_BEAM_BLUE:
-            if (creature->GetPositionY() < 7000.0f)                 // East Beam
+            if (creature->GetPositionY() < 7000.0f)         // East Beam
                 m_beamTowerBlue[0] = creature->GetObjectGuid();
-            else if (creature->GetPositionY() < 7300.0f)            // Center Beam
+            else if (creature->GetPositionY() < 7300.0f)    // Center Beam
                 m_beamGraveyardBlue = creature->GetObjectGuid();
-            else                                                    // West Beam
+            else                                            // West Beam
                 m_beamTowerBlue[1] = creature->GetObjectGuid();
             break;
     }
@@ -117,6 +117,8 @@ void OutdoorPvPZM::HandleCreatureCreate(Creature* creature)
 
 void OutdoorPvPZM::HandleGameObjectCreate(GameObject* go)
 {
+    OutdoorPvP::HandleGameObjectCreate(go);
+
     switch (go->GetEntry())
     {
         case GO_ZANGA_BANNER_EAST:
@@ -138,7 +140,7 @@ void OutdoorPvPZM::HandleGameObjectCreate(GameObject* go)
 }
 
 // Cast player spell on opponent kill
-void OutdoorPvPZM::HandlePlayerKillInsideArea(Player* player, Unit* /*victim*/)
+void OutdoorPvPZM::HandlePlayerKillInsideArea(Player* player)
 {
     for (uint8 i = 0; i < MAX_ZM_TOWERS; ++i)
     {

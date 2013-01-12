@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2012 MaNGOS <http://getmangos.com/>
+ * Copyright (C) 2005-2013 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -455,7 +455,6 @@ void AuctionHouseMgr::LoadAuctions()
         }
 
         GetAuctionsMap(auction->auctionHouseEntry)->AddAuction(auction);
-
     }
     while (result->NextRow());
     delete result;
@@ -557,6 +556,7 @@ AuctionHouseEntry const* AuctionHouseMgr::GetAuctionHouseEntry(Unit* unit)
                 {
                     case ALLIANCE: houseid = player->GetAuctionAccessMode() == 0 ? 1 : 6; break;
                     case HORDE:    houseid = player->GetAuctionAccessMode() == 0 ? 6 : 1; break;
+                    default: break;
                 }
             }
         }

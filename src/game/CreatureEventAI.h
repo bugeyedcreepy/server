@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2012 MaNGOS <http://getmangos.com/>
+ * Copyright (C) 2005-2013 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -33,7 +33,7 @@ class WorldObject;
 
 enum EventAI_Type
 {
-    EVENT_T_TIMER                   = 0,                    // InitialMin, InitialMax, RepeatMin, RepeatMax
+    EVENT_T_TIMER_IN_COMBAT         = 0,                    // InitialMin, InitialMax, RepeatMin, RepeatMax
     EVENT_T_TIMER_OOC               = 1,                    // InitialMin, InitialMax, RepeatMin, RepeatMax
     EVENT_T_HP                      = 2,                    // HPMax%, HPMin%, RepeatMin, RepeatMax
     EVENT_T_MANA                    = 3,                    // ManaMax%,ManaMin% RepeatMin, RepeatMax
@@ -62,6 +62,7 @@ enum EventAI_Type
     EVENT_T_SUMMONED_JUST_DESPAWN   = 26,                   // CreatureId, RepeatMin, RepeatMax
     EVENT_T_MISSING_AURA            = 27,                   // Param1 = SpellID, Param2 = Number of time stacked expected, Param3/4 Repeat Min/Max
     EVENT_T_TARGET_MISSING_AURA     = 28,                   // Param1 = SpellID, Param2 = Number of time stacked expected, Param3/4 Repeat Min/Max
+    EVENT_T_TIMER_GENERIC           = 29,                   // InitialMin, InitialMax, RepeatMin, RepeatMax
 
     EVENT_T_END,
 };
@@ -419,8 +420,9 @@ struct CreatureEventAI_Event
 
     union
     {
-        // EVENT_T_TIMER                                    = 0
+        // EVENT_T_TIMER_IN_COMBAT                          = 0
         // EVENT_T_TIMER_OOC                                = 1
+        // EVENT_T_TIMER_GENERIC                            = 29
         struct
         {
             uint32 initialMin;
@@ -637,10 +639,7 @@ class MANGOS_DLL_SPEC CreatureEventAI : public CreatureAI
         CreatureEventAIList m_CreatureEventAIList;          // Holder for events (stores enabled, time, and eventid)
 
         uint8  m_Phase;                                     // Current phase, max 32 phases
-        bool   m_CombatMovementEnabled;                     // If we allow targeted movment gen (movement twoards top threat)
         bool   m_MeleeEnabled;                              // If we allow melee auto attack
-        float  m_AttackDistance;                            // Distance to attack from
-        float  m_AttackAngle;                               // Angle of attack
         uint32 m_InvinceabilityHpLevel;                     // Minimal health level allowed at damage apply
 };
 

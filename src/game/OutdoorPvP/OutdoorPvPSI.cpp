@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2012 MaNGOS <http://getmangos.com/>
+ * Copyright (C) 2005-2013 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,12 +18,12 @@
 
 #include "OutdoorPvPSI.h"
 #include "WorldPacket.h"
-#include "../World.h"
-#include "../ObjectMgr.h"
-#include "../Object.h"
-#include "../Creature.h"
-#include "../GameObject.h"
-#include "../Player.h"
+#include "World.h"
+#include "ObjectMgr.h"
+#include "Object.h"
+#include "Creature.h"
+#include "GameObject.h"
+#include "Player.h"
 
 OutdoorPvPSI::OutdoorPvPSI() : OutdoorPvP(),
     m_resourcesAlliance(0),
@@ -154,8 +154,8 @@ struct SilithusSpawnLocation
 // Area trigger location - workaround to check the flag drop handling
 static SilithusSpawnLocation silithusFlagDropLocations[2] =
 {
-    {-7142.04f, 1397.92f, 4.327f},      // alliance
-    {-7588.48f, 756.806f, -16.425f}     // horde
+    { -7142.04f, 1397.92f, 4.327f},     // alliance
+    { -7588.48f, 756.806f, -16.425f}    // horde
 };
 
 bool OutdoorPvPSI::HandleDropFlag(Player* player, uint32 spellId)

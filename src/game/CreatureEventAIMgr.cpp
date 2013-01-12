@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2012 MaNGOS <http://getmangos.com/>
+ * Copyright (C) 2005-2013 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -143,7 +143,6 @@ void CreatureEventAIMgr::CheckUnusedAITexts()
                     }
                     default: break;
                 }
-
             }
         }
     }
@@ -235,7 +234,6 @@ void CreatureEventAIMgr::CheckUnusedAISummons()
                     }
                     default: break;
                 }
-
             }
         }
     }
@@ -311,8 +309,9 @@ void CreatureEventAIMgr::LoadCreatureEventAI_Scripts()
             // Individual event checks
             switch (temp.event_type)
             {
-                case EVENT_T_TIMER:
+                case EVENT_T_TIMER_IN_COMBAT:
                 case EVENT_T_TIMER_OOC:
+                case EVENT_T_TIMER_GENERIC:
                     if (temp.timer.initialMax < temp.timer.initialMin)
                         sLog.outErrorDb("CreatureEventAI:  Creature %u are using timed event(%u) with param2 < param1 (InitialMax < InitialMin). Event will never repeat.", temp.creature_id, i);
                     if (temp.timer.repeatMax < temp.timer.repeatMin)
@@ -376,6 +375,7 @@ void CreatureEventAIMgr::LoadCreatureEventAI_Scripts()
                         case SPAWNED_EVENT_ZONE:
                             if (!GetAreaEntryByAreaID(temp.spawned.conditionValue1))
                                 sLog.outErrorDb("CreatureEventAI:  Creature %u are using spawned event(%u) with param1 = %u 'area specific' but area (param2: %u) does not exist. Event will never repeat.", temp.creature_id, i, temp.spawned.condition, temp.spawned.conditionValue1);
+                            break;
                         default:
                             sLog.outErrorDb("CreatureEventAI:  Creature %u are using invalid spawned event %u mode (%u) in param1", temp.creature_id, i, temp.spawned.condition);
                             break;
@@ -831,7 +831,7 @@ void CreatureEventAIMgr::LoadCreatureEventAI_Scripts()
         delete result;
 
         // post check
-        for (uint32 i = 1; i < sCreatureStorage.MaxEntry; ++i)
+        for (uint32 i = 1; i < sCreatureStorage.GetMaxEntry(); ++i)
         {
             if (CreatureInfo const* cInfo = sCreatureStorage.LookupEntry<CreatureInfo>(i))
             {

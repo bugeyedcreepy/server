@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2012 MaNGOS <http://getmangos.com/>
+ * Copyright (C) 2005-2013 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -177,7 +177,6 @@ void WorldSession::HandleCalendarRemoveEvent(WorldPacket& recv_data)
     // recv_data >> uint64
     // recv_data >> uint64
     // recv_data >> uint32
-
 }
 
 void WorldSession::HandleCalendarCopyEvent(WorldPacket& recv_data)
@@ -189,7 +188,6 @@ void WorldSession::HandleCalendarCopyEvent(WorldPacket& recv_data)
     // recv_data >> uint64
     // recv_data >> uint64
     // recv_data >> uint32
-
 }
 
 void WorldSession::HandleCalendarEventInvite(WorldPacket& recv_data)
@@ -203,7 +201,6 @@ void WorldSession::HandleCalendarEventInvite(WorldPacket& recv_data)
     // recv_data >> std::string
     // recv_data >> uint8
     // recv_data >> uint8
-
 }
 
 void WorldSession::HandleCalendarEventRsvp(WorldPacket& recv_data)

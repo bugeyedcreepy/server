@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2012 MaNGOS <http://getmangos.com/>
+ * Copyright (C) 2005-2013 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -23,6 +23,7 @@
 #include "ObjectMgr.h"
 #include "ScriptMgr.h"
 #include "ObjectGuid.h"
+#include "SQLStorages.h"
 #include "SpellMgr.h"
 #include "QuestDef.h"
 #include "GossipDef.h"
@@ -39,7 +40,7 @@
 #include "WaypointMovementGenerator.h"
 #include "InstanceData.h"
 #include "MapPersistentStateMgr.h"
-#include "BattleGroundMgr.h"
+#include "BattleGround/BattleGroundMgr.h"
 #include "OutdoorPvP/OutdoorPvP.h"
 #include "Spell.h"
 #include "Util.h"
@@ -156,15 +157,18 @@ bool CreatureCreatePos::Relocate(Creature* cr) const
     return true;
 }
 
-Creature::Creature(CreatureSubtype subtype) :
-    Unit(), i_AI(NULL),
-    lootForPickPocketed(false), lootForBody(false), lootForSkin(false), m_groupLootTimer(0), m_groupLootId(0),
+Creature::Creature(CreatureSubtype subtype) : Unit(),
+    i_AI(NULL),
+    loot(this),
+    lootForPickPocketed(false), lootForBody(false), lootForSkin(false),
+    m_groupLootTimer(0), m_groupLootId(0),
     m_lootMoney(0), m_lootGroupRecipientId(0),
     m_corpseDecayTimer(0), m_respawnTime(0), m_respawnDelay(25), m_corpseDelay(60), m_respawnradius(5.0f),
     m_subtype(subtype), m_defaultMovementType(IDLE_MOTION_TYPE), m_equipmentId(0),
     m_AlreadyCallAssistance(false), m_AlreadySearchedAssistance(false),
     m_regenHealth(true), m_AI_locked(false), m_isDeadByDefault(false),
-    m_meleeDamageSchoolMask(SPELL_SCHOOL_MASK_NORMAL), m_originalEntry(0), m_temporaryFactionFlags(TEMPFACTION_NONE),
+    m_temporaryFactionFlags(TEMPFACTION_NONE),
+    m_meleeDamageSchoolMask(SPELL_SCHOOL_MASK_NORMAL), m_originalEntry(0),
     m_creatureInfo(NULL)
 {
     m_regenTimer = 200;
@@ -176,7 +180,7 @@ Creature::Creature(CreatureSubtype subtype) :
     m_CreatureSpellCooldowns.clear();
     m_CreatureCategoryCooldowns.clear();
 
-    SetWalk(true);
+    SetWalk(true, true);
 }
 
 Creature::~Creature()
@@ -232,6 +236,13 @@ void Creature::RemoveCorpse()
     float x, y, z, o;
     GetRespawnCoord(x, y, z, &o);
     GetMap()->CreatureRelocation(this, x, y, z, o);
+
+    // forced recreate creature object at clients
+    UnitVisibility currentVis = GetVisibility();
+    SetVisibility(VISIBILITY_REMOVE_CORPSE);
+    UpdateObjectVisibility();
+    SetVisibility(currentVis);                              // restore visibility state
+    UpdateObjectVisibility();
 }
 
 /**
@@ -325,7 +336,7 @@ bool Creature::InitEntry(uint32 Entry, CreatureData const* data /*=NULL*/, GameE
     UpdateSpeed(MOVE_WALK, false);
     UpdateSpeed(MOVE_RUN,  false);
 
-    SetLevitate(CanFly());
+    SetLevitate(cinfo->InhabitType & INHABIT_AIR);
 
     // checked at loading
     m_defaultMovementType = MovementGeneratorType(cinfo->MovementType);
@@ -390,10 +401,15 @@ bool Creature::UpdateEntry(uint32 Entry, Team team, const CreatureData* data /*=
             SetPvP(false);
     }
 
-    for (int i = 0; i < CREATURE_MAX_SPELLS; ++i)
-        m_spells[i] = GetCreatureInfo()->spells[i];
+    // Try difficulty dependend version before falling back to base entry
+    CreatureTemplateSpells const* templateSpells = sCreatureTemplateSpellsStorage.LookupEntry<CreatureTemplateSpells>(GetCreatureInfo()->Entry);
+    if (!templateSpells)
+        templateSpells = sCreatureTemplateSpellsStorage.LookupEntry<CreatureTemplateSpells>(GetEntry());
+    if (templateSpells)
+        for (int i = 0; i < CREATURE_MAX_SPELLS; ++i)
+            m_spells[i] = templateSpells->spells[i];
 
-    SetVehicleId(GetCreatureInfo()->vehicleId);
+    SetVehicleId(GetCreatureInfo()->vehicleId, 0);
 
     // if eventData set then event active and need apply spell_start
     if (eventData)
@@ -750,15 +766,15 @@ bool Creature::Create(uint32 guidlow, CreatureCreatePos& cPos, CreatureInfo cons
     if (!cPos.Relocate(this))
         return false;
 
+    // Notify the outdoor pvp script
+    if (OutdoorPvP* outdoorPvP = sOutdoorPvPMgr.GetScript(GetZoneId()))
+        outdoorPvP->HandleCreatureCreate(this);
+
     // Notify the map's instance data.
     // Only works if you create the object in it, not if it is moves to that map.
     // Normally non-players do not teleport to other maps.
     if (InstanceData* iData = GetMap()->GetInstanceData())
         iData->OnCreatureCreate(this);
-
-    // Notify the outdoor pvp script
-    if (OutdoorPvP* outdoorPvP = sOutdoorPvPMgr.GetScript(GetZoneId()))
-        outdoorPvP->HandleCreatureCreate(this);
 
     switch (GetCreatureInfo()->rank)
     {
@@ -941,31 +957,27 @@ void Creature::PrepareBodyLootState()
 {
     loot.clear();
 
-    // only dead
-    if (!isAlive())
+    // if have normal loot then prepare it access
+    if (!lootForBody)
     {
-        // if have normal loot then prepare it access
-        if (!lootForBody)
+        // have normal loot
+        if (GetCreatureInfo()->maxgold > 0 || GetCreatureInfo()->lootid ||
+                // ... or can have skinning after
+                (GetCreatureInfo()->SkinLootId && sWorld.getConfig(CONFIG_BOOL_CORPSE_EMPTY_LOOT_SHOW)))
         {
-            // have normal loot
-            if (GetCreatureInfo()->maxgold > 0 || GetCreatureInfo()->lootid ||
-                    // ... or can have skinning after
-                    (GetCreatureInfo()->SkinLootId && sWorld.getConfig(CONFIG_BOOL_CORPSE_EMPTY_LOOT_SHOW)))
-            {
-                SetFlag(UNIT_DYNAMIC_FLAGS, UNIT_DYNFLAG_LOOTABLE);
-                return;
-            }
-        }
-
-        lootForBody = true;                                 // pass this loot mode
-
-        // if not have normal loot allow skinning if need
-        if (!lootForSkin && GetCreatureInfo()->SkinLootId)
-        {
-            RemoveFlag(UNIT_DYNAMIC_FLAGS, UNIT_DYNFLAG_LOOTABLE);
-            SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_SKINNABLE);
+            SetFlag(UNIT_DYNAMIC_FLAGS, UNIT_DYNFLAG_LOOTABLE);
             return;
         }
+    }
+
+    lootForBody = true;                                     // pass this loot mode
+
+    // if not have normal loot allow skinning if need
+    if (!lootForSkin && GetCreatureInfo()->SkinLootId)
+    {
+        RemoveFlag(UNIT_DYNAMIC_FLAGS, UNIT_DYNFLAG_LOOTABLE);
+        SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_SKINNABLE);
+        return;
     }
 
     RemoveFlag(UNIT_DYNAMIC_FLAGS, UNIT_DYNFLAG_LOOTABLE);
@@ -1299,6 +1311,7 @@ bool Creature::LoadFromDB(uint32 guidlow, Map* map)
     if (!Create(guidlow, pos, cinfo, TEAM_NONE, data, eventData))
         return false;
 
+    SetRespawnCoord(pos);
     m_respawnradius = data->spawndist;
 
     m_respawnDelay = data->spawntimesecs;
@@ -1312,7 +1325,7 @@ bool Creature::LoadFromDB(uint32 guidlow, Map* map)
         m_deathState = DEAD;
         if (CanFly())
         {
-            float tz = GetTerrain()->GetHeight(data->posX, data->posY, data->posZ, false);
+            float tz = GetTerrain()->GetHeightStatic(data->posX, data->posY, data->posZ, false);
             if (data->posZ - tz > 0.1)
                 Relocate(data->posX, data->posY, tz);
         }
@@ -1342,7 +1355,7 @@ bool Creature::LoadFromDB(uint32 guidlow, Map* map)
             // Just set to dead, so need to relocate like above
             if (CanFly())
             {
-                float tz = GetTerrain()->GetHeight(data->posX, data->posY, data->posZ, false);
+                float tz = GetTerrain()->GetHeightStatic(data->posX, data->posY, data->posZ, false);
                 if (data->posZ - tz > 0.1)
                     Relocate(data->posX, data->posY, tz);
             }
@@ -1409,7 +1422,6 @@ bool Creature::HasInvolvedQuest(uint32 quest_id) const
     }
     return false;
 }
-
 
 struct CreatureRespawnDeleteWorker
 {
@@ -1527,7 +1539,7 @@ void Creature::SetDeathState(DeathState s)
 
         SetHealth(GetMaxHealth());
         SetLootRecipient(NULL);
-        SetWalk(true);
+        SetWalk(true, true);
 
         if (GetTemporaryFactionFlags() & TEMPFACTION_RESTORE_RESPAWN)
             ClearTemporaryFaction();
@@ -1555,13 +1567,6 @@ void Creature::Respawn()
 {
     RemoveCorpse();
 
-    // forced recreate creature object at clients
-    UnitVisibility currentVis = GetVisibility();
-    SetVisibility(VISIBILITY_RESPAWN);
-    UpdateObjectVisibility();
-    SetVisibility(currentVis);                              // restore visibility state
-    UpdateObjectVisibility();
-
     if (IsDespawned())
     {
         if (HasStaticDBSpawnData())
@@ -1583,24 +1588,24 @@ void Creature::ForcedDespawn(uint32 timeMSToDespawn)
     if (isAlive())
         SetDeathState(JUST_DIED);
 
-    RemoveCorpse();
+    m_corpseDecayTimer = 1;                                 // Properly remove corpse on next tick (also pool system requires Creature::Update call with CORPSE state
     SetHealth(0);                                           // just for nice GM-mode view
 }
 
-bool Creature::IsImmuneToSpell(SpellEntry const* spellInfo)
+bool Creature::IsImmuneToSpell(SpellEntry const* spellInfo, bool castOnSelf)
 {
     if (!spellInfo)
         return false;
 
-    if (GetCreatureInfo()->MechanicImmuneMask & (1 << (spellInfo->Mechanic - 1)))
+    if (!castOnSelf && GetCreatureInfo()->MechanicImmuneMask & (1 << (spellInfo->Mechanic - 1)))
         return true;
 
-    return Unit::IsImmuneToSpell(spellInfo);
+    return Unit::IsImmuneToSpell(spellInfo, castOnSelf);
 }
 
-bool Creature::IsImmuneToSpellEffect(SpellEntry const* spellInfo, SpellEffectIndex index) const
+bool Creature::IsImmuneToSpellEffect(SpellEntry const* spellInfo, SpellEffectIndex index, bool castOnSelf) const
 {
-    if (GetCreatureInfo()->MechanicImmuneMask & (1 << (spellInfo->EffectMechanic[index] - 1)))
+    if (!castOnSelf && GetCreatureInfo()->MechanicImmuneMask & (1 << (spellInfo->EffectMechanic[index] - 1)))
         return true;
 
     // Taunt immunity special flag check
@@ -1617,7 +1622,7 @@ bool Creature::IsImmuneToSpellEffect(SpellEntry const* spellInfo, SpellEffectInd
             return true;
     }
 
-    return Unit::IsImmuneToSpellEffect(spellInfo, index);
+    return Unit::IsImmuneToSpellEffect(spellInfo, index, castOnSelf);
 }
 
 SpellEntry const* Creature::ReachWithSpellAttack(Unit* pVictim)
@@ -2093,7 +2098,7 @@ Unit* Creature::SelectAttackingTarget(AttackingTarget target, uint32 position, S
             std::vector<Unit*> suitableUnits;
             suitableUnits.reserve(threatlist.size() - position);
             advance(itr, position);
-            for (itr; itr != threatlist.end(); ++itr)
+            for (; itr != threatlist.end(); ++itr)
                 if (Unit* pTarget = GetMap()->GetUnit((*itr)->getUnitGuid()))
                     if (!selectFlags || MeetsSelectAttackingRequirement(pTarget, pSpellInfo, selectFlags))
                         suitableUnits.push_back(pTarget);
@@ -2106,7 +2111,7 @@ Unit* Creature::SelectAttackingTarget(AttackingTarget target, uint32 position, S
         case ATTACKING_TARGET_TOPAGGRO:
         {
             advance(itr, position);
-            for (itr; itr != threatlist.end(); ++itr)
+            for (; itr != threatlist.end(); ++itr)
                 if (Unit* pTarget = GetMap()->GetUnit((*itr)->getUnitGuid()))
                     if (!selectFlags || MeetsSelectAttackingRequirement(pTarget, pSpellInfo, selectFlags))
                         return pTarget;
@@ -2116,7 +2121,7 @@ Unit* Creature::SelectAttackingTarget(AttackingTarget target, uint32 position, S
         case ATTACKING_TARGET_BOTTOMAGGRO:
         {
             advance(ritr, position);
-            for (ritr; ritr != threatlist.rend(); ++ritr)
+            for (; ritr != threatlist.rend(); ++ritr)
                 if (Unit* pTarget = GetMap()->GetUnit((*itr)->getUnitGuid()))
                     if (!selectFlags || MeetsSelectAttackingRequirement(pTarget, pSpellInfo, selectFlags))
                         return pTarget;
@@ -2201,30 +2206,29 @@ time_t Creature::GetRespawnTimeEx() const
 
 void Creature::GetRespawnCoord(float& x, float& y, float& z, float* ori, float* dist) const
 {
-    if (CreatureData const* data = sObjectMgr.GetCreatureData(GetGUIDLow()))
-    {
-        x = data->posX;
-        y = data->posY;
-        z = data->posZ;
-        if (ori)
-            *ori = data->orientation;
-        if (dist)
-            *dist = GetRespawnRadius();
-    }
-    else
-    {
-        float orient;
+    x = m_respawnPos.x;
+    y = m_respawnPos.y;
+    z = m_respawnPos.z;
 
-        GetSummonPoint(x, y, z, orient);
+    if (ori)
+        *ori = m_respawnPos.o;
 
-        if (ori)
-            *ori = orient;
-        if (dist)
-            *dist = GetRespawnRadius();
-    }
+    if (dist)
+        *dist = GetRespawnRadius();
 
     // lets check if our creatures have valid spawn coordinates
     MANGOS_ASSERT(MaNGOS::IsValidMapCoord(x, y, z) || PrintCoordinatesError(x, y, z, "respawn"));
+}
+
+void Creature::ResetRespawnCoord()
+{
+    if (CreatureData const* data = sObjectMgr.GetCreatureData(GetGUIDLow()))
+    {
+        m_respawnPos.x = data->posX;
+        m_respawnPos.y = data->posY;
+        m_respawnPos.z = data->posZ;
+        m_respawnPos.o = data->orientation;
+    }
 }
 
 void Creature::AllLootRemovedFromCorpse()
@@ -2410,6 +2414,13 @@ void Creature::SetFactionTemporary(uint32 factionId, uint32 tempFactionFlags)
 {
     m_temporaryFactionFlags = tempFactionFlags;
     setFaction(factionId);
+
+    if (m_temporaryFactionFlags & TEMPFACTION_TOGGLE_NON_ATTACKABLE)
+        RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE);
+    if (m_temporaryFactionFlags & TEMPFACTION_TOGGLE_OOC_NOT_ATTACK)
+        RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_OOC_NOT_ATTACKABLE);
+    if (m_temporaryFactionFlags & TEMPFACTION_TOGGLE_PASSIVE)
+        RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PASSIVE);
 }
 
 void Creature::ClearTemporaryFaction()
@@ -2420,8 +2431,17 @@ void Creature::ClearTemporaryFaction()
     if (isCharmed())
         return;
 
-    m_temporaryFactionFlags = TEMPFACTION_NONE;
+    // Reset to original faction
     setFaction(GetCreatureInfo()->faction_A);
+    // Reset UNIT_FLAG_NON_ATTACKABLE, UNIT_FLAG_OOC_NOT_ATTACKABLE or UNIT_FLAG_PASSIVE flags
+    if (m_temporaryFactionFlags & TEMPFACTION_TOGGLE_NON_ATTACKABLE && GetCreatureInfo()->unit_flags & UNIT_FLAG_NON_ATTACKABLE)
+        SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE);
+    if (m_temporaryFactionFlags & TEMPFACTION_TOGGLE_OOC_NOT_ATTACK && GetCreatureInfo()->unit_flags & UNIT_FLAG_OOC_NOT_ATTACKABLE && !isInCombat())
+        SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_OOC_NOT_ATTACKABLE);
+    if (m_temporaryFactionFlags & TEMPFACTION_TOGGLE_PASSIVE && GetCreatureInfo()->unit_flags & UNIT_FLAG_PASSIVE)
+        SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PASSIVE);
+
+    m_temporaryFactionFlags = TEMPFACTION_NONE;
 }
 
 void Creature::SendAreaSpiritHealerQueryOpcode(Player* pl)
@@ -2521,12 +2541,25 @@ bool Creature::HasStaticDBSpawnData() const
     return sObjectMgr.GetCreatureData(GetGUIDLow()) != NULL;
 }
 
-void Creature::SetWalk(bool enable)
+void Creature::SetWalk(bool enable, bool asDefault)
 {
+    if (asDefault)
+    {
+        if (enable)
+            clearUnitState(UNIT_STAT_RUNNING);
+        else
+            addUnitState(UNIT_STAT_RUNNING);
+    }
+
+    // Nothing changed?
+    if (enable == m_movementInfo.HasMovementFlag(MOVEFLAG_WALK_MODE))
+        return;
+
     if (enable)
         m_movementInfo.AddMovementFlag(MOVEFLAG_WALK_MODE);
     else
         m_movementInfo.RemoveMovementFlag(MOVEFLAG_WALK_MODE);
+
     WorldPacket data(enable ? SMSG_SPLINE_MOVE_SET_WALK_MODE : SMSG_SPLINE_MOVE_SET_RUN_MODE, 9);
     data << GetPackGUID();
     SendMessageToSet(&data, true);

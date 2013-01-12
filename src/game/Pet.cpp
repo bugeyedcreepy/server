@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2012 MaNGOS <http://getmangos.com/>
+ * Copyright (C) 2005-2013 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -124,7 +124,6 @@ bool Pet::LoadPetFromDB(Player* owner, uint32 petentry, uint32 petnumber, bool c
         delete result;
         return false;
     }
-
 
     uint32 summon_spell_id = fields[17].GetUInt32();
     SpellEntry const* spellInfo = sSpellStore.LookupEntry(summon_spell_id);
@@ -600,7 +599,6 @@ void Pet::RegenerateAll(uint32 update_diff)
         m_happinessTimer -= update_diff;
 }
 
-
 void Pet::Regenerate(Powers power)
 {
     uint32 curValue = GetPower(power);
@@ -917,6 +915,11 @@ bool Pet::InitStatsForLevel(uint32 petlevel, Unit* owner)
             // this enables popup window (pet abandon, cancel)
             SetUInt32Value(UNIT_FIELD_FLAGS, UNIT_FLAG_PVP_ATTACKABLE);
             break;
+        case GUARDIAN_PET:
+        case MINI_PET:
+        case PROTECTOR_PET:
+        default:
+            break;
     }
 
     SetLevel(petlevel);
@@ -981,7 +984,7 @@ bool Pet::InitStatsForLevel(uint32 petlevel, Unit* owner)
                     }
                     case CLASS_MAGE:
                     {
-                        //40% damage bonus of mage's frost damage
+                        // 40% damage bonus of mage's frost damage
                         float val = owner->GetUInt32Value(PLAYER_FIELD_MOD_DAMAGE_DONE_POS + SPELL_SCHOOL_FROST) * 0.4f;
                         if (val < 0)
                             val = 0;
@@ -1390,7 +1393,7 @@ void Pet::_SaveAuras()
 
         // skip all holders from spells that are passive or channeled
         // do not save single target holders (unless they were cast by the player)
-        if (save && !holder->IsPassive() && !IsChanneledSpell(holder->GetSpellProto()) && (holder->GetCasterGuid() == GetObjectGuid() || !holder->IsSingleTarget()))
+        if (save && !holder->IsPassive() && !IsChanneledSpell(holder->GetSpellProto()) && (holder->GetCasterGuid() == GetObjectGuid() || holder->GetTrackedAuraType() != TRACK_AURA_TYPE_NOT_TRACKED))
         {
             int32  damage[MAX_EFFECT_INDEX];
             uint32 periodicTime[MAX_EFFECT_INDEX];
@@ -1887,7 +1890,6 @@ void Pet::UpdateFreeTalentPoints(bool resetIfNeed)
     else
         SetFreeTalentPoints(talentPointsForLevel - m_usedTalentCount);
 }
-
 
 void Pet::InitTalentForLevel()
 {

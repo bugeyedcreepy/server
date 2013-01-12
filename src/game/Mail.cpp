@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2012 MaNGOS <http://getmangos.com/>
+ * Copyright (C) 2005-2013 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -117,7 +117,7 @@ bool MailDraft::prepareItems(Player* receiver)
 
     m_mailTemplateItemsNeed = false;
 
-    Loot mailLoot;
+    Loot mailLoot(NULL);
 
     // can be empty
     mailLoot.FillLoot(m_mailTemplateId, LootTemplates_Mail, receiver, true, true);
@@ -347,7 +347,7 @@ void Mail::prepareTemplateItems(Player* receiver)
 
     has_items = true;
 
-    Loot mailLoot;
+    Loot mailLoot(NULL);
 
     // can be empty
     mailLoot.FillLoot(mailTemplateId, LootTemplates_Mail, receiver, true, true);

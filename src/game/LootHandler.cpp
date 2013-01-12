@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2012 MaNGOS <http://getmangos.com/>
+ * Copyright (C) 2005-2013 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -486,13 +486,11 @@ void WorldSession::DoLootRelease(ObjectGuid lguid)
                 if (group->GetLooterGuid() == player->GetObjectGuid())
                     group->UpdateLooterGuid(pCreature);
 
-            if (loot->isLooted())
+            if (loot->isLooted() && !pCreature->isAlive())
             {
                 // for example skinning after normal loot
                 pCreature->PrepareBodyLootState();
-
-                if (!pCreature->isAlive())
-                    pCreature->AllLootRemovedFromCorpse();
+                pCreature->AllLootRemovedFromCorpse();
             }
             break;
         }
@@ -553,7 +551,7 @@ void WorldSession::HandleLootMasterGiveOpcode(WorldPacket& recv_data)
 
     if (slotid > pLoot->items.size())
     {
-        DEBUG_LOG("AutoLootItem: Player %s might be using a hack! (slot %d, size %lu)", GetPlayer()->GetName(), slotid, (unsigned long)pLoot->items.size());
+        DEBUG_LOG("AutoLootItem: Player %s might be using a hack! (slot %d, size " SIZEFMTD ")", GetPlayer()->GetName(), slotid, pLoot->items.size());
         return;
     }
 

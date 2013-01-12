@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2012 MaNGOS <http://getmangos.com/>
+ * Copyright (C) 2005-2013 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -49,7 +49,7 @@
 #include "ScriptMgr.h"
 #include "CreatureAIRegistry.h"
 #include "Policies/SingletonImp.h"
-#include "BattleGroundMgr.h"
+#include "BattleGround/BattleGroundMgr.h"
 #include "OutdoorPvP/OutdoorPvP.h"
 #include "TemporarySummon.h"
 #include "VMapFactory.h"
@@ -68,6 +68,8 @@
 #include "CreatureLinkingMgr.h"
 
 INSTANTIATE_SINGLETON_1(World);
+
+extern void LoadGameObjectModelList();
 
 volatile bool World::m_stopEvent = false;
 uint8 World::m_ExitCode = SHUTDOWN_EXIT_CODE;
@@ -139,6 +141,14 @@ World::~World()
     MMAP::MMapFactory::clear();
 
     // TODO free addSessQueue
+}
+
+/// Cleanups before world stop
+void World::CleanupsBeforeStop()
+{
+    KickAll();                                       // save and kick all players
+    UpdateSessions(1);                               // real players unload required UpdateSessions call
+    sBattleGroundMgr.DeleteAllBattleGrounds();       // unload battleground templates before different singletons destroyed
 }
 
 /// Find a player in a specified zone
@@ -949,7 +959,7 @@ void World::SetInitialWorldSettings()
     // No SQL injection as values are treated as integers
 
     // not send custom type REALM_FFA_PVP to realm list
-    uint32 server_type = IsFFAPvPRealm() ? REALM_TYPE_PVP : getConfig(CONFIG_UINT32_GAME_TYPE);
+    uint32 server_type = IsFFAPvPRealm() ? uint32(REALM_TYPE_PVP) : getConfig(CONFIG_UINT32_GAME_TYPE);
     uint32 realm_zone = getConfig(CONFIG_UINT32_REALM_ZONE);
     LoginDatabase.PExecute("UPDATE realmlist SET icon = %u, timezone = %u WHERE id = '%u'", server_type, realm_zone, realmID);
 
@@ -1000,6 +1010,9 @@ void World::SetInitialWorldSettings()
     sLog.outString("Loading Game Object Templates...");     // must be after LoadPageTexts
     sObjectMgr.LoadGameobjectInfo();
 
+    sLog.outString("Loading GameObject models...");
+    LoadGameObjectModelList();
+
     sLog.outString("Loading Spell Chain Data...");
     sSpellMgr.LoadSpellChains();
 
@@ -1048,11 +1061,17 @@ void World::SetInitialWorldSettings()
     sLog.outString("Loading Creature templates...");
     sObjectMgr.LoadCreatureTemplates();
 
+    sLog.outString("Loading Creature template spells...");
+    sObjectMgr.LoadCreatureTemplateSpells();
+
     sLog.outString("Loading Creature Model for race...");   // must be after creature templates
     sObjectMgr.LoadCreatureModelRace();
 
     sLog.outString("Loading SpellsScriptTarget...");
     sSpellMgr.LoadSpellScriptTarget();                      // must be after LoadCreatureTemplates and LoadGameobjectInfo
+
+    sLog.outString("Loading Vehicle Accessory...");         // must be after creature templates
+    sObjectMgr.LoadVehicleAccessory();
 
     sLog.outString("Loading ItemRequiredTarget...");
     sObjectMgr.LoadItemRequiredTarget();
@@ -1306,10 +1325,10 @@ void World::SetInitialWorldSettings()
     sScriptMgr.LoadDbScriptStrings();
 
     sLog.outString("Loading CreatureEventAI Texts...");
-    sEventAIMgr.LoadCreatureEventAI_Texts(false);       // false, will checked in LoadCreatureEventAI_Scripts
+    sEventAIMgr.LoadCreatureEventAI_Texts(false);           // false, will checked in LoadCreatureEventAI_Scripts
 
     sLog.outString("Loading CreatureEventAI Summons...");
-    sEventAIMgr.LoadCreatureEventAI_Summons(false);     // false, will checked in LoadCreatureEventAI_Scripts
+    sEventAIMgr.LoadCreatureEventAI_Summons(false);         // false, will checked in LoadCreatureEventAI_Scripts
 
     sLog.outString("Loading CreatureEventAI Scripts...");
     sEventAIMgr.LoadCreatureEventAI_Scripts();
@@ -1361,7 +1380,7 @@ void World::SetInitialWorldSettings()
     // mailtimer is increased when updating auctions
     // one second is 1000 -(tested on win system)
     mail_timer = uint32((((localtime(&m_gameTime)->tm_hour + 20) % 24) * HOUR * IN_MILLISECONDS) / m_timers[WUPDATE_AUCTIONS].GetInterval());
-    //1440
+    // 1440
     mail_timer_expires = uint32((DAY * IN_MILLISECONDS) / (m_timers[WUPDATE_AUCTIONS].GetInterval()));
     DEBUG_LOG("Mail timer set to: %u, mail return is called every %u minutes", mail_timer, mail_timer_expires);
 

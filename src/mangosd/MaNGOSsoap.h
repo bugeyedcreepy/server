@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2012 MaNGOS <http://getmangos.com/>
+ * Copyright (C) 2005-2013 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -29,7 +29,6 @@
 
 #include <ace/Semaphore.h>
 #include <ace/Task.h>
-
 
 class MaNGOSsoapRunnable: public ACE_Based::Runnable
 {
@@ -74,15 +73,14 @@ class SOAPWorkingThread : public ACE_Task<ACE_MT_SYNCH>
         void process_message(ACE_Message_Block* mb);
 };
 
-
 class SOAPCommand
 {
     public:
         SOAPCommand():
             pendingCommands(0, USYNC_THREAD, "pendingCommands")
         {
-
         }
+
         ~SOAPCommand()
         {
         }

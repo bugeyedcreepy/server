@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2012 MaNGOS <http://getmangos.com/>
+ * Copyright (C) 2005-2013 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -313,7 +313,6 @@ SqlPreparedStatement* MySQLConnection::CreateStatement(const std::string& fmt)
     return new MySqlPreparedStatement(fmt, *this, mMysql);
 }
 
-
 //////////////////////////////////////////////////////////////////////////
 MySqlPreparedStatement::MySqlPreparedStatement(const std::string& fmt, SqlConnection& conn, MYSQL* mysql) : SqlPreparedStatement(fmt, conn),
     m_pMySQLConn(mysql), m_stmt(NULL), m_pInputArgs(NULL), m_pResult(NULL), m_pResultMetadata(NULL)
@@ -403,7 +402,7 @@ void MySqlPreparedStatement::bind(const SqlStmtParameters& holder)
         return;
     }
 
-    int nIndex = 0;
+    unsigned int nIndex = 0;
     SqlStmtParameters::ParameterContainer const& _args = holder.params();
 
     SqlStmtParameters::ParameterContainer::const_iterator iter_last = _args.end();
@@ -421,7 +420,7 @@ void MySqlPreparedStatement::bind(const SqlStmtParameters& holder)
     }
 }
 
-void MySqlPreparedStatement::addParam(int nIndex, const SqlStmtFieldData& data)
+void MySqlPreparedStatement::addParam(unsigned int nIndex, const SqlStmtFieldData& data)
 {
     MANGOS_ASSERT(m_pInputArgs);
     MANGOS_ASSERT(nIndex < m_nParams);

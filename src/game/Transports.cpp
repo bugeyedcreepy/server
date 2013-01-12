@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2012 MaNGOS <http://getmangos.com/>
+ * Copyright (C) 2005-2013 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -179,7 +179,10 @@ bool Transport::Create(uint32 guidlow, uint32 mapid, float x, float y, float z, 
     SetUInt32Value(GAMEOBJECT_LEVEL, m_period);
     SetEntry(goinfo->id);
 
-    SetDisplayId(goinfo->displayId);
+    //SetDisplayId(goinfo->displayId);
+    // Use SetDisplayId only if we have the GO assigned to a proper map!
+    SetUInt32Value(GAMEOBJECT_DISPLAYID, goinfo->displayId);
+    m_displayInfo = sGameObjectDisplayInfoStore.LookupEntry(goinfo->displayId);
 
     SetGoState(GO_STATE_READY);
     SetGoType(GameobjectTypes(goinfo->type));

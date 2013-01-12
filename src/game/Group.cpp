@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2012 MaNGOS <http://getmangos.com/>
+ * Copyright (C) 2005-2013 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -27,7 +27,7 @@
 #include "Group.h"
 #include "Formulas.h"
 #include "ObjectAccessor.h"
-#include "BattleGround.h"
+#include "BattleGround/BattleGround.h"
 #include "MapManager.h"
 #include "MapPersistentStateMgr.h"
 #include "Util.h"
@@ -759,7 +759,7 @@ void Group::StartLootRoll(WorldObject* lootTarget, LootMethod method, Loot* loot
         if (!playerToRoll || !playerToRoll->GetSession())
             continue;
 
-        if (lootItem.AllowedForPlayer(playerToRoll))
+        if (lootItem.AllowedForPlayer(playerToRoll, lootTarget))
         {
             if (playerToRoll->IsWithinDistInMap(lootTarget, sWorld.getConfig(CONFIG_FLOAT_GROUP_XP_DISTANCE), false))
             {
@@ -926,7 +926,7 @@ void Group::CountTheRoll(Rolls::iterator& rollI)
                     --roll->getLoot()->unlootedCount;
 
                     ItemPrototype const* pProto = ObjectMgr::GetItemPrototype(roll->itemid);
-                    player->AutoStoreLoot(pProto->DisenchantID, LootTemplates_Disenchant, true);
+                    player->AutoStoreLoot(roll->getLoot()->GetLootTarget(), pProto->DisenchantID, LootTemplates_Disenchant, true);
                 }
             }
         }
@@ -1779,7 +1779,7 @@ InstanceGroupBind* Group::GetBoundInstance(uint32 mapid, Player* player)
     Difficulty difficulty = player->GetDifficulty(mapEntry->IsRaid());
 
     // some instances only have one difficulty
-    MapDifficulty const* mapDiff = GetMapDifficultyData(mapid, difficulty);
+    MapDifficultyEntry const* mapDiff = GetMapDifficultyData(mapid, difficulty);
     if (!mapDiff)
         difficulty = DUNGEON_DIFFICULTY_NORMAL;
 
@@ -1793,7 +1793,7 @@ InstanceGroupBind* Group::GetBoundInstance(uint32 mapid, Player* player)
 InstanceGroupBind* Group::GetBoundInstance(Map* aMap, Difficulty difficulty)
 {
     // some instances only have one difficulty
-    MapDifficulty const* mapDiff = GetMapDifficultyData(aMap->GetId(), difficulty);
+    MapDifficultyEntry const* mapDiff = GetMapDifficultyData(aMap->GetId(), difficulty);
     if (!mapDiff)
         return NULL;
 

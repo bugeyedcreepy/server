@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2012 MaNGOS <http://getmangos.com/>
+ * Copyright (C) 2005-2013 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,12 +18,12 @@
 
 #include "OutdoorPvPEP.h"
 #include "WorldPacket.h"
-#include "../World.h"
-#include "../ObjectMgr.h"
-#include "../Object.h"
-#include "../Creature.h"
-#include "../GameObject.h"
-#include "../Player.h"
+#include "World.h"
+#include "ObjectMgr.h"
+#include "Object.h"
+#include "Creature.h"
+#include "GameObject.h"
+#include "Player.h"
 
 OutdoorPvPEP::OutdoorPvPEP() : OutdoorPvP(),
     m_towersAlliance(0),
@@ -109,6 +109,8 @@ void OutdoorPvPEP::HandleCreatureCreate(Creature* creature)
 
 void OutdoorPvPEP::HandleGameObjectCreate(GameObject* go)
 {
+    OutdoorPvP::HandleGameObjectCreate(go);
+
     switch (go->GetEntry())
     {
         case GO_TOWER_BANNER_NORTHPASS:

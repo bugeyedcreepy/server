@@ -1,5 +1,5 @@
 /*
-* Copyright (C) 2005-2012 MaNGOS <http://getmangos.com/>
+* Copyright (C) 2005-2013 MaNGOS <http://getmangos.com/>
 *
 * This program is free software; you can redistribute it and/or modify
 * it under the terms of the GNU General Public License as published by
@@ -28,7 +28,6 @@ namespace CharacterDatabaseCleaner
         CLEANING_FLAG_SPELLS                = 0x4,
         CLEANING_FLAG_TALENTS               = 0x8
     };
-
 
     void CleanDatabase();
 
